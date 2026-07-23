@@ -49,3 +49,48 @@ export const pageSectionSchema = z.object({
   displayOrder: z.number().int().optional().default(1),
   itemCount: z.number().int().nullable().optional(),
 });
+
+export const PRODUCT_STATUSES = ['Active', 'Inactive', 'Discontinued'] as const;
+
+export const productUpdateSchema = z.object({
+  name: z.string().min(1).max(1000),
+  slug: z.string().max(500).nullable().optional(),
+  status: z.enum(PRODUCT_STATUSES),
+  categoryId: z.string().uuid().optional(),
+  subcategoryId: z.string().uuid().optional(),
+});
+
+export const variantSchema = z.object({
+  sku: z.string().max(500).nullable().optional(),
+  barcode: z.string().max(500).nullable().optional(),
+  attrsKey: z.string().min(1).max(500).optional().default('default'),
+  attrsJson: z.string().nullable().optional(),
+  isDefault: z.boolean().optional().default(false),
+});
+
+const nullableNumber = z
+  .union([z.number(), z.string(), z.null()])
+  .optional()
+  .transform((v) => {
+    if (v === undefined || v === null || v === '') return null;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  });
+
+export const merchantPriceSchema = z.object({
+  merchantId: z.string().uuid(),
+  variantId: z.string().uuid().nullable().optional(),
+  price: nullableNumber,
+  originalPrice: nullableNumber,
+  inStock: z.boolean().optional().default(true),
+  productUrl: z.string().max(2000).nullable().optional(),
+  currencyCode: z.string().max(10).nullable().optional(),
+});
+
+export const merchantPriceUpdateSchema = z.object({
+  price: nullableNumber,
+  originalPrice: nullableNumber,
+  inStock: z.boolean(),
+  productUrl: z.string().max(2000).nullable().optional(),
+  currencyCode: z.string().max(10).nullable().optional(),
+});
