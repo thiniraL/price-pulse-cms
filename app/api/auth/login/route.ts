@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applySetCookies, proxyBackend } from '@/lib/backend';
+import { applySetCookies, backendErrorMessage, proxyBackend } from '@/lib/backend';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -26,12 +26,7 @@ export async function POST(request: NextRequest) {
     if (proxied.status >= 400) {
       const res = NextResponse.json(
         {
-          error:
-            proxied.data?.Messages?.[0]?.Message ||
-            proxied.data?.messages?.[0]?.message ||
-            proxied.data?.message ||
-            'Login failed',
-          ...proxied.data,
+          error: backendErrorMessage(proxied.status, proxied.data, 'Login failed'),
         },
         { status: proxied.status }
       );

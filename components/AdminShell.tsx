@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api';
 
 const NAV = [
   { href: '/', label: 'Dashboard' },
+  { href: '/analytics', label: 'Analytics' },
   { href: '/header', label: 'Header' },
   { href: '/page-sections', label: 'Page sections' },
   { href: '/merchants', label: 'Merchants' },

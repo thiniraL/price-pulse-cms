@@ -2,6 +2,11 @@ import Link from 'next/link';
 
 const cards = [
   {
+    href: '/analytics',
+    title: 'Search analytics',
+    text: 'Charts for search volume, top queries, and zero-result demand by day, month, year, or custom range.',
+  },
+  {
     href: '/header',
     title: 'Header navigation',
     text: 'Manage top-level and sub-navigation items shown on the storefront.',
@@ -23,10 +28,9 @@ export default function DashboardPage() {
     <div>
       <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
       <p className="mt-1 text-sm text-[var(--muted)]">
-        Content and merchant admin for PricePulse. Changes write to the shared
-        database used by the public site.
+        Content, merchant admin, and search demand analytics for PricePulse.
       </p>
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <Link
             key={card.href}
