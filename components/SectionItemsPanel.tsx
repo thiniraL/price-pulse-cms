@@ -112,6 +112,13 @@ export default function SectionItemsPanel({
   const [storyCta, setStoryCta] = useState('Shop now');
   const [storyUrl, setStoryUrl] = useState('');
   const [storyFile, setStoryFile] = useState<File | null>(null);
+  const [storyIsActive, setStoryIsActive] = useState(true);
+  const [editingStoryId, setEditingStoryId] = useState<string | null>(null);
+  const [editStoryMerchantId, setEditStoryMerchantId] = useState('');
+  const [editStoryCta, setEditStoryCta] = useState('');
+  const [editStoryUrl, setEditStoryUrl] = useState('');
+  const [editStoryIsActive, setEditStoryIsActive] = useState(true);
+  const [savingStoryId, setSavingStoryId] = useState<string | null>(null);
 
   const [adMerchantId, setAdMerchantId] = useState('');
   const [adClickUrl, setAdClickUrl] = useState('#');
@@ -199,7 +206,11 @@ export default function SectionItemsPanel({
     }
   }
 
-  async function replaceStoryImage(itemId: string, previousUrl: string, file: File) {
+  async function replaceStoryImage(
+    itemId: string,
+    previousUrl: string | null,
+    file: File
+  ) {
     setUploadingId(itemId);
     setError(null);
     try {
@@ -215,6 +226,42 @@ export default function SectionItemsPanel({
       setError(err instanceof Error ? err.message : 'Image upload failed');
     } finally {
       setUploadingId(null);
+    }
+  }
+
+  function startEditStory(item: Record<string, unknown>) {
+    setEditingStoryId(String(item.id));
+    setEditStoryMerchantId(
+      typeof item.merchantId === 'string' ? item.merchantId : ''
+    );
+    setEditStoryCta(typeof item.cta === 'string' ? item.cta : '');
+    setEditStoryUrl(typeof item.storyUrl === 'string' ? item.storyUrl : '');
+    setEditStoryIsActive(item.isActive !== false);
+  }
+
+  async function saveStoryRow(itemId: string) {
+    if (!editStoryMerchantId || !editStoryCta.trim()) {
+      setError('Merchant and CTA are required');
+      return;
+    }
+    setSavingStoryId(itemId);
+    setError(null);
+    try {
+      await apiFetch(`/api/page-sections/${sectionId}/items/${itemId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          merchantId: editStoryMerchantId,
+          cta: editStoryCta.trim(),
+          storyUrl: editStoryUrl.trim() || null,
+          isActive: editStoryIsActive,
+        }),
+      });
+      setEditingStoryId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingStoryId(null);
     }
   }
 
@@ -324,6 +371,7 @@ export default function SectionItemsPanel({
             image: storyImage || undefined,
             cta: storyCta,
             storyUrl: storyUrl || null,
+            isActive: storyIsActive,
           }),
         }
       );
@@ -341,6 +389,7 @@ export default function SectionItemsPanel({
       setStoryCta('Shop now');
       setStoryUrl('');
       setStoryFile(null);
+      setStoryIsActive(true);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
@@ -582,6 +631,8 @@ export default function SectionItemsPanel({
                   <th>Preview</th>
                   <th>Merchant</th>
                   <th>CTA</th>
+                  <th>Story URL</th>
+                  <th>Status</th>
                   <th>Replace image</th>
                   <th />
                 </tr>
@@ -590,6 +641,7 @@ export default function SectionItemsPanel({
                 {items.map((item) => {
                   const image = String(item.image || '');
                   const id = String(item.id);
+                  const editing = editingStoryId === id;
                   return (
                     <tr key={id}>
                       <td>
@@ -604,8 +656,68 @@ export default function SectionItemsPanel({
                           <span className="text-xs text-[var(--muted)]">No image</span>
                         )}
                       </td>
-                      <td>{String(item.merchantName || item.merchantId)}</td>
-                      <td>{String(item.cta)}</td>
+                      <td className="min-w-[140px]">
+                        {editing ? (
+                          <select
+                            className="admin-input"
+                            value={editStoryMerchantId}
+                            onChange={(e) => setEditStoryMerchantId(e.target.value)}
+                          >
+                            <option value="">Select merchant…</option>
+                            {merchants.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          String(item.merchantName || item.merchantId)
+                        )}
+                      </td>
+                      <td className="min-w-[120px]">
+                        {editing ? (
+                          <input
+                            className="admin-input"
+                            value={editStoryCta}
+                            onChange={(e) => setEditStoryCta(e.target.value)}
+                          />
+                        ) : (
+                          String(item.cta)
+                        )}
+                      </td>
+                      <td className="min-w-[180px]">
+                        {editing ? (
+                          <input
+                            className="admin-input"
+                            type="url"
+                            placeholder="https://…"
+                            value={editStoryUrl}
+                            onChange={(e) => setEditStoryUrl(e.target.value)}
+                          />
+                        ) : (
+                          <span className="break-all text-xs text-[var(--muted)]">
+                            {String(item.storyUrl || '—')}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {editing ? (
+                          <select
+                            className="admin-input"
+                            value={editStoryIsActive ? 'active' : 'inactive'}
+                            onChange={(e) =>
+                              setEditStoryIsActive(e.target.value === 'active')
+                            }
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        ) : item.isActive !== false ? (
+                          <span className="text-[var(--accent)]">Active</span>
+                        ) : (
+                          <span className="text-[var(--muted)]">Inactive</span>
+                        )}
+                      </td>
                       <td>
                         <input
                           type="file"
@@ -621,7 +733,34 @@ export default function SectionItemsPanel({
                           <span className="text-xs text-[var(--muted)]">Uploading…</span>
                         ) : null}
                       </td>
-                      <td>
+                      <td className="space-x-2 whitespace-nowrap">
+                        {editing ? (
+                          <>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-primary"
+                              disabled={savingStoryId === id}
+                              onClick={() => saveStoryRow(id)}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-secondary"
+                              onClick={() => setEditingStoryId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-secondary"
+                            onClick={() => startEditStory(item)}
+                          >
+                            Edit
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="admin-btn admin-btn-danger"
@@ -635,7 +774,7 @@ export default function SectionItemsPanel({
                 })}
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-sm text-[var(--muted)]">
+                    <td colSpan={7} className="text-sm text-[var(--muted)]">
                       No stories yet.
                     </td>
                   </tr>
@@ -660,6 +799,17 @@ export default function SectionItemsPanel({
                     {m.name}
                   </option>
                 ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              Status
+              <select
+                className="admin-input mt-1"
+                value={storyIsActive ? 'active' : 'inactive'}
+                onChange={(e) => setStoryIsActive(e.target.value === 'active')}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
               </select>
             </label>
             <label className="block text-sm">

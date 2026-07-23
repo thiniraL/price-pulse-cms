@@ -239,6 +239,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
   if (mode === 'story_feed') {
     const result = await query(
       `SELECT s."Id", s."MerchantId", s."Image", s."Cta", s."StoryUrl", s."Duration",
+              COALESCE(s."IsActive", true) AS "IsActive",
               m."Name" AS "MerchantName", m."LogoUrl"
        FROM content.story_feed s
        LEFT JOIN merchants.merchants m ON m."Id" = s."MerchantId"
@@ -263,6 +264,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
             r.Duration === null || r.Duration === undefined
               ? null
               : Number(r.Duration),
+          isActive: Boolean(r.IsActive),
         };
       }),
     });
@@ -481,10 +483,11 @@ export async function POST(request: NextRequest, { params }: Params) {
           { status: 400 }
         );
       }
+      const isActive = body.isActive === undefined ? true : Boolean(body.isActive);
       const result = await query(
         `INSERT INTO content.story_feed
-          ("MerchantId", "Image", "Cta", "StoryUrl", "Duration", "IsDeleted")
-         VALUES ($1, $2, $3, $4, $5, false)
+          ("MerchantId", "Image", "Cta", "StoryUrl", "Duration", "IsActive", "IsDeleted")
+         VALUES ($1, $2, $3, $4, $5, $6, false)
          RETURNING "Id"`,
         [
           merchantId,
@@ -492,6 +495,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           cta,
           body.storyUrl || null,
           body.duration ?? null,
+          isActive,
         ]
       );
       return NextResponse.json(

@@ -117,13 +117,29 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
 
     if (mode === 'story_feed') {
+      const isActive =
+        body.isActive === undefined ? null : Boolean(body.isActive);
+      const hasStoryUrlUpdate = body.storyUrl !== undefined;
+      const storyUrl =
+        typeof body.storyUrl === 'string' && body.storyUrl.trim()
+          ? body.storyUrl.trim()
+          : null;
+      const hasDurationUpdate = body.duration !== undefined;
+
       await query(
         `UPDATE content.story_feed
          SET "MerchantId" = COALESCE($2, "MerchantId"),
              "Image" = COALESCE($3, "Image"),
              "Cta" = COALESCE($4, "Cta"),
-             "StoryUrl" = COALESCE($5, "StoryUrl"),
-             "Duration" = COALESCE($6, "Duration"),
+             "StoryUrl" = CASE
+                WHEN $7::boolean THEN $5
+                ELSE "StoryUrl"
+              END,
+             "Duration" = CASE
+                WHEN $8::boolean THEN $6
+                ELSE "Duration"
+              END,
+             "IsActive" = COALESCE($9, "IsActive"),
              "UpdatedAt" = NOW()
          WHERE "Id" = $1`,
         [
@@ -131,8 +147,13 @@ export async function PUT(request: NextRequest, { params }: Params) {
           body.merchantId ?? null,
           body.image ?? null,
           body.cta ?? null,
-          body.storyUrl === undefined ? null : body.storyUrl,
-          body.duration === undefined ? null : body.duration,
+          storyUrl,
+          body.duration === undefined || body.duration === ''
+            ? null
+            : Number(body.duration),
+          hasStoryUrlUpdate,
+          hasDurationUpdate,
+          isActive,
         ]
       );
       return NextResponse.json({ success: true });
