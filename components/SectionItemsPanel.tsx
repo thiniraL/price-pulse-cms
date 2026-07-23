@@ -81,10 +81,14 @@ export default function SectionItemsPanel({
   const [productDetailSponsored, setProductDetailSponsored] = useState(false);
   const [productDetailSponsoredUrl, setProductDetailSponsoredUrl] = useState('');
   const [productDetailMerchantId, setProductDetailMerchantId] = useState('');
+  const [productDetailIsActive, setProductDetailIsActive] = useState(true);
+  const [productDetailDisplayOrder, setProductDetailDisplayOrder] = useState('');
   const [editingProductDetailId, setEditingProductDetailId] = useState<string | null>(null);
   const [editSponsored, setEditSponsored] = useState(false);
   const [editSponsoredUrl, setEditSponsoredUrl] = useState('');
   const [editMerchantId, setEditMerchantId] = useState('');
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editDisplayOrder, setEditDisplayOrder] = useState('1');
   const [savingProductDetailId, setSavingProductDetailId] = useState<string | null>(null);
   const [adsEnabled, setAdsEnabled] = useState(false);
   const [totalEligible, setTotalEligible] = useState<number | null>(null);
@@ -238,11 +242,16 @@ export default function SectionItemsPanel({
     if (!selectedProduct) return;
     setError(null);
     try {
+      const orderNum = Number(productDetailDisplayOrder);
       await apiFetch(`/api/page-sections/${sectionId}/items`, {
         method: 'POST',
         body: JSON.stringify({
           productId: selectedProduct.id,
-          displayOrder: items.length + 1,
+          displayOrder:
+            Number.isFinite(orderNum) && orderNum > 0
+              ? orderNum
+              : items.length + 1,
+          isActive: productDetailIsActive,
           isSponsored: productDetailSponsored,
           sponsoredUrl: productDetailSponsored
             ? productDetailSponsoredUrl.trim() || null
@@ -256,6 +265,8 @@ export default function SectionItemsPanel({
       setProductDetailSponsored(false);
       setProductDetailSponsoredUrl('');
       setProductDetailMerchantId('');
+      setProductDetailIsActive(true);
+      setProductDetailDisplayOrder('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
@@ -271,15 +282,21 @@ export default function SectionItemsPanel({
     setEditMerchantId(
       typeof item.merchantId === 'string' ? item.merchantId : ''
     );
+    setEditIsActive(item.isActive !== false);
+    setEditDisplayOrder(String(item.displayOrder ?? 1));
   }
 
-  async function saveProductDetailSponsored(itemId: string) {
+  async function saveProductDetailRow(itemId: string) {
     setSavingProductDetailId(itemId);
     setError(null);
     try {
+      const orderNum = Number(editDisplayOrder);
       await apiFetch(`/api/page-sections/${sectionId}/items/${itemId}`, {
         method: 'PUT',
         body: JSON.stringify({
+          isActive: editIsActive,
+          displayOrder:
+            Number.isFinite(orderNum) && orderNum > 0 ? orderNum : 1,
           isSponsored: editSponsored,
           sponsoredUrl: editSponsored ? editSponsoredUrl.trim() || null : null,
           merchantId: editMerchantId || null,
@@ -851,9 +868,38 @@ export default function SectionItemsPanel({
                 <tr key={String(item.id)}>
                   {mode === 'product_detail_blocks' ? (
                     <>
-                      <td>{String(item.displayOrder)}</td>
+                      <td className="min-w-[70px]">
+                        {editingProductDetailId === String(item.id) ? (
+                          <input
+                            className="admin-input w-20"
+                            type="number"
+                            min={1}
+                            value={editDisplayOrder}
+                            onChange={(e) => setEditDisplayOrder(e.target.value)}
+                          />
+                        ) : (
+                          String(item.displayOrder)
+                        )}
+                      </td>
                       <td>{String(item.productName || item.productId)}</td>
-                      <td>{item.isActive ? 'Yes' : 'No'}</td>
+                      <td>
+                        {editingProductDetailId === String(item.id) ? (
+                          <select
+                            className="admin-input"
+                            value={editIsActive ? 'active' : 'inactive'}
+                            onChange={(e) =>
+                              setEditIsActive(e.target.value === 'active')
+                            }
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        ) : item.isActive ? (
+                          <span className="text-[var(--accent)]">Active</span>
+                        ) : (
+                          <span className="text-[var(--muted)]">Inactive</span>
+                        )}
+                      </td>
                       <td>
                         {editingProductDetailId === String(item.id) ? (
                           <label className="inline-flex items-center gap-2 text-sm">
@@ -916,7 +962,7 @@ export default function SectionItemsPanel({
                               className="admin-btn admin-btn-primary"
                               disabled={savingProductDetailId === String(item.id)}
                               onClick={() =>
-                                saveProductDetailSponsored(String(item.id))
+                                saveProductDetailRow(String(item.id))
                               }
                             >
                               Save
@@ -1064,6 +1110,32 @@ export default function SectionItemsPanel({
 
       {mode === 'product_detail_blocks' ? (
         <form className="mt-3 space-y-3" onSubmit={addProductDetail}>
+          <div className="flex flex-wrap gap-4">
+            <label className="block text-sm">
+              Status
+              <select
+                className="admin-input mt-1"
+                value={productDetailIsActive ? 'active' : 'inactive'}
+                onChange={(e) =>
+                  setProductDetailIsActive(e.target.value === 'active')
+                }
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label className="block text-sm">
+              Display order
+              <input
+                className="admin-input mt-1 w-28"
+                type="number"
+                min={1}
+                placeholder={String(items.length + 1)}
+                value={productDetailDisplayOrder}
+                onChange={(e) => setProductDetailDisplayOrder(e.target.value)}
+              />
+            </label>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"

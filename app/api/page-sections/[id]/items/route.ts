@@ -438,6 +438,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       }
       const displayOrder = Number(body.displayOrder ?? 1);
       const isSponsored = Boolean(body.isSponsored);
+      const isActive = body.isActive === undefined ? true : Boolean(body.isActive);
       const sponsoredUrl = isSponsored
         ? ((body.sponsoredUrl as string)?.trim() || null)
         : null;
@@ -448,9 +449,18 @@ export async function POST(request: NextRequest, { params }: Params) {
       const result = await query(
         `INSERT INTO content.product_detail_blocks
           ("ProductId", "VariantId", "DataSourceKey", "DisplayOrder", "IsActive", "IsDeleted", "IsSponsored", "SponsoredUrl", "MerchantId")
-         VALUES ($1, $2, $3, $4, true, false, $5, $6, $7)
+         VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8)
          RETURNING "Id"`,
-        [productId, body.variantId || null, key, displayOrder, isSponsored, sponsoredUrl, merchantId]
+        [
+          productId,
+          body.variantId || null,
+          key,
+          displayOrder,
+          isActive,
+          isSponsored,
+          sponsoredUrl,
+          merchantId,
+        ]
       );
       return NextResponse.json(
         { data: { id: String((result.rows[0] as { Id: string }).Id) } },
