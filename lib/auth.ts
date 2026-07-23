@@ -99,7 +99,10 @@ export async function requireAuth(): Promise<
   return { user };
 }
 
-/** @deprecated Use requireAuth — kept for existing API routes. */
+/**
+ * Alias for requireAuth — Admin role is intentionally NOT enforced.
+ * Login + valid JWT is enough for manage APIs.
+ */
 export async function requireAdmin() {
   return requireAuth();
 }

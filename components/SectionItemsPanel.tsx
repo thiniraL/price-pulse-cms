@@ -78,6 +78,14 @@ export default function SectionItemsPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [ads, setAds] = useState<AdItem[]>([]);
+  const [productDetailSponsored, setProductDetailSponsored] = useState(false);
+  const [productDetailSponsoredUrl, setProductDetailSponsoredUrl] = useState('');
+  const [productDetailMerchantId, setProductDetailMerchantId] = useState('');
+  const [editingProductDetailId, setEditingProductDetailId] = useState<string | null>(null);
+  const [editSponsored, setEditSponsored] = useState(false);
+  const [editSponsoredUrl, setEditSponsoredUrl] = useState('');
+  const [editMerchantId, setEditMerchantId] = useState('');
+  const [savingProductDetailId, setSavingProductDetailId] = useState<string | null>(null);
   const [adsEnabled, setAdsEnabled] = useState(false);
   const [totalEligible, setTotalEligible] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);
@@ -149,6 +157,7 @@ export default function SectionItemsPanel({
     if (
       mode === 'story_feed' ||
       mode === 'sponsored_products' ||
+      mode === 'product_detail_blocks' ||
       adsEnabled
     ) {
       apiFetch<{ data: MerchantHit[] }>('/api/merchants?pageSize=200')
@@ -234,14 +243,54 @@ export default function SectionItemsPanel({
         body: JSON.stringify({
           productId: selectedProduct.id,
           displayOrder: items.length + 1,
+          isSponsored: productDetailSponsored,
+          sponsoredUrl: productDetailSponsored
+            ? productDetailSponsoredUrl.trim() || null
+            : null,
+          merchantId: productDetailMerchantId || null,
         }),
       });
       setSelectedProduct(null);
       setProductQuery('');
       setProductHits([]);
+      setProductDetailSponsored(false);
+      setProductDetailSponsoredUrl('');
+      setProductDetailMerchantId('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
+    }
+  }
+
+  function startEditProductDetail(item: Record<string, unknown>) {
+    setEditingProductDetailId(String(item.id));
+    setEditSponsored(Boolean(item.isSponsored));
+    setEditSponsoredUrl(
+      typeof item.sponsoredUrl === 'string' ? item.sponsoredUrl : ''
+    );
+    setEditMerchantId(
+      typeof item.merchantId === 'string' ? item.merchantId : ''
+    );
+  }
+
+  async function saveProductDetailSponsored(itemId: string) {
+    setSavingProductDetailId(itemId);
+    setError(null);
+    try {
+      await apiFetch(`/api/page-sections/${sectionId}/items/${itemId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          isSponsored: editSponsored,
+          sponsoredUrl: editSponsored ? editSponsoredUrl.trim() || null : null,
+          merchantId: editMerchantId || null,
+        }),
+      });
+      setEditingProductDetailId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingProductDetailId(null);
     }
   }
 
@@ -772,6 +821,9 @@ export default function SectionItemsPanel({
                     <th>Order</th>
                     <th>Product</th>
                     <th>Active</th>
+                    <th>Sponsored</th>
+                    <th>Sponsored URL</th>
+                    <th>Merchant</th>
                     <th />
                   </>
                 ) : null}
@@ -802,6 +854,98 @@ export default function SectionItemsPanel({
                       <td>{String(item.displayOrder)}</td>
                       <td>{String(item.productName || item.productId)}</td>
                       <td>{item.isActive ? 'Yes' : 'No'}</td>
+                      <td>
+                        {editingProductDetailId === String(item.id) ? (
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={editSponsored}
+                              onChange={(e) => setEditSponsored(e.target.checked)}
+                            />
+                            Sponsored
+                          </label>
+                        ) : item.isSponsored ? (
+                          'Yes'
+                        ) : (
+                          'No'
+                        )}
+                      </td>
+                      <td className="min-w-[180px]">
+                        {editingProductDetailId === String(item.id) ? (
+                          <input
+                            className="admin-input"
+                            type="url"
+                            placeholder="https://…"
+                            disabled={!editSponsored}
+                            value={editSponsoredUrl}
+                            onChange={(e) => setEditSponsoredUrl(e.target.value)}
+                          />
+                        ) : (
+                          <span className="break-all text-xs text-[var(--muted)]">
+                            {item.isSponsored
+                              ? String(item.sponsoredUrl || '—')
+                              : '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="min-w-[160px]">
+                        {editingProductDetailId === String(item.id) ? (
+                          <select
+                            className="admin-input"
+                            value={editMerchantId}
+                            onChange={(e) => setEditMerchantId(e.target.value)}
+                          >
+                            <option value="">No merchant</option>
+                            {merchants.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-sm">
+                            {String(item.merchantName || '—')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="space-x-2 whitespace-nowrap">
+                        {editingProductDetailId === String(item.id) ? (
+                          <>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-primary"
+                              disabled={savingProductDetailId === String(item.id)}
+                              onClick={() =>
+                                saveProductDetailSponsored(String(item.id))
+                              }
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-secondary"
+                              onClick={() => setEditingProductDetailId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-secondary"
+                            onClick={() => startEditProductDetail(item)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-danger"
+                          onClick={() => removeItem(String(item.id))}
+                        >
+                          Remove
+                        </button>
+                      </td>
                     </>
                   ) : null}
                   {mode === 'product_feature_collections' ? (
@@ -828,20 +972,22 @@ export default function SectionItemsPanel({
                       <td>{String(item.categoryName || item.categoryId)}</td>
                     </>
                   ) : null}
-                  <td>
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn-danger"
-                      onClick={() => removeItem(String(item.id))}
-                    >
-                      Remove
-                    </button>
-                  </td>
+                  {mode !== 'product_detail_blocks' ? (
+                    <td>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn-danger"
+                        onClick={() => removeItem(String(item.id))}
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-sm text-[var(--muted)]">
+                  <td colSpan={6} className="text-sm text-[var(--muted)]">
                     No items yet.
                   </td>
                 </tr>
@@ -917,7 +1063,42 @@ export default function SectionItemsPanel({
       )}
 
       {mode === 'product_detail_blocks' ? (
-        <form className="mt-3" onSubmit={addProductDetail}>
+        <form className="mt-3 space-y-3" onSubmit={addProductDetail}>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={productDetailSponsored}
+              onChange={(e) => setProductDetailSponsored(e.target.checked)}
+            />
+            Sponsored
+          </label>
+          {productDetailSponsored ? (
+            <label className="block text-sm">
+              Sponsored link URL
+              <input
+                className="admin-input mt-1"
+                type="url"
+                placeholder="https://…"
+                value={productDetailSponsoredUrl}
+                onChange={(e) => setProductDetailSponsoredUrl(e.target.value)}
+              />
+            </label>
+          ) : null}
+          <label className="block text-sm">
+            Merchant
+            <select
+              className="admin-input mt-1"
+              value={productDetailMerchantId}
+              onChange={(e) => setProductDetailMerchantId(e.target.value)}
+            >
+              <option value="">No merchant</option>
+              {merchants.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="submit"
             className="admin-btn admin-btn-primary"

@@ -1,96 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 import { query } from '@/lib/db';
+import {
+  parsePeriodParam,
+  resolveAnalyticsRange,
+  truncSql,
+} from '@/lib/analyticsPeriod';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-type Period = 'day' | 'month' | 'year' | 'custom';
-type Bucket = 'hour' | 'day' | 'month';
-
-function startOfUtcDay(d: Date) {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-}
-
-function startOfUtcMonth(d: Date) {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
-}
-
-function startOfUtcYear(d: Date) {
-  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-}
-
-function parseDateParam(value: string | null): Date | null {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function resolveRange(period: Period, fromParam: string | null, toParam: string | null) {
-  const now = new Date();
-  let from: Date;
-  let to: Date = now;
-  let bucket: Bucket;
-
-  if (period === 'day') {
-    from = startOfUtcDay(now);
-    bucket = 'hour';
-  } else if (period === 'year') {
-    from = startOfUtcYear(now);
-    bucket = 'month';
-  } else if (period === 'custom') {
-    const customFrom = parseDateParam(fromParam);
-    const customTo = parseDateParam(toParam);
-    from = customFrom ? startOfUtcDay(customFrom) : startOfUtcMonth(now);
-    to = customTo
-      ? new Date(
-          Date.UTC(
-            customTo.getUTCFullYear(),
-            customTo.getUTCMonth(),
-            customTo.getUTCDate(),
-            23,
-            59,
-            59,
-            999
-          )
-        )
-      : now;
-    if (from > to) {
-      const tmp = from;
-      from = startOfUtcDay(to);
-      to = new Date(
-        Date.UTC(tmp.getUTCFullYear(), tmp.getUTCMonth(), tmp.getUTCDate(), 23, 59, 59, 999)
-      );
-    }
-    const spanMs = to.getTime() - from.getTime();
-    const spanDays = spanMs / (1000 * 60 * 60 * 24);
-    bucket = spanDays <= 2 ? 'hour' : spanDays <= 92 ? 'day' : 'month';
-  } else {
-    // default: month
-    from = startOfUtcMonth(now);
-    bucket = 'day';
-  }
-
-  return { from, to, bucket, period: period === 'custom' ? 'custom' : period };
-}
-
-function truncExpr(bucket: Bucket) {
-  if (bucket === 'hour') return `date_trunc('hour', searched_at)`;
-  if (bucket === 'month') return `date_trunc('month', searched_at)`;
-  return `date_trunc('day', searched_at)`;
-}
-
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if ('error' in auth) return auth.error;
 
   const sp = request.nextUrl.searchParams;
-  const periodParam = (sp.get('period') || 'month').toLowerCase() as Period;
-  const period: Period = ['day', 'month', 'year', 'custom'].includes(periodParam)
-    ? periodParam
-    : 'month';
-
-  const { from, to, bucket } = resolveRange(
+  const period = parsePeriodParam(sp.get('period'));
+  const { from, to, bucket } = resolveAnalyticsRange(
     period,
     sp.get('from'),
     sp.get('to')
@@ -132,7 +58,7 @@ export async function GET(request: NextRequest) {
       zero_results: number;
     }>(
       `SELECT
-         ${truncExpr(bucket)} AS bucket,
+         ${truncSql('searched_at', bucket)} AS bucket,
          COUNT(*)::int AS searches,
          COUNT(*) FILTER (WHERE result_count = 0)::int AS zero_results
        FROM analytics.search_queries
@@ -237,7 +163,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to load analytics';
-    // Table may not exist yet
     if (message.includes('search_queries') || message.includes('does not exist')) {
       return NextResponse.json(
         {

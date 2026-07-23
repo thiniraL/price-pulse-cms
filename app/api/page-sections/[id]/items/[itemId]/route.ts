@@ -64,11 +64,41 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
 
     if (mode === 'product_detail_blocks') {
+      const isSponsored =
+        body.isSponsored === undefined ? null : Boolean(body.isSponsored);
+      let sponsoredUrl: string | null = null;
+      const hasSponsoredUrlUpdate =
+        body.sponsoredUrl !== undefined || isSponsored === false;
+      if (isSponsored === false) {
+        sponsoredUrl = null;
+      } else if (body.sponsoredUrl !== undefined) {
+        sponsoredUrl =
+          typeof body.sponsoredUrl === 'string' && body.sponsoredUrl.trim()
+            ? body.sponsoredUrl.trim()
+            : null;
+      }
+
+      const hasMerchantUpdate = body.merchantId !== undefined;
+      const merchantId =
+        typeof body.merchantId === 'string' && body.merchantId.trim()
+          ? body.merchantId.trim()
+          : null;
+
       await query(
         `UPDATE content.product_detail_blocks
          SET "DisplayOrder" = COALESCE($2, "DisplayOrder"),
              "IsActive" = COALESCE($3, "IsActive"),
              "VariantId" = COALESCE($4, "VariantId"),
+             "IsSponsored" = COALESCE($5, "IsSponsored"),
+             "SponsoredUrl" = CASE
+                WHEN $5::boolean IS FALSE THEN NULL
+                WHEN $7::boolean THEN $6
+                ELSE "SponsoredUrl"
+              END,
+             "MerchantId" = CASE
+                WHEN $9::boolean THEN $8::uuid
+                ELSE "MerchantId"
+              END,
              "UpdatedAt" = NOW()
          WHERE "Id" = $1`,
         [
@@ -76,6 +106,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
           body.displayOrder ?? null,
           body.isActive ?? null,
           body.variantId === undefined ? null : body.variantId,
+          isSponsored,
+          sponsoredUrl,
+          hasSponsoredUrlUpdate,
+          merchantId,
+          hasMerchantUpdate,
         ]
       );
       return NextResponse.json({ success: true });

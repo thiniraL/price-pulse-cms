@@ -199,9 +199,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const result = await query(
       `SELECT b."Id", b."ProductId", b."VariantId", b."DataSourceKey",
               b."DisplayOrder", b."IsActive",
+              COALESCE(b."IsSponsored", false) AS "IsSponsored",
+              b."SponsoredUrl",
+              b."MerchantId",
+              m."Name" AS "MerchantName",
               p."Name" AS "ProductName", p."Slug" AS "ProductSlug"
        FROM content.product_detail_blocks b
        LEFT JOIN products.products p ON p."Id" = b."ProductId"
+       LEFT JOIN merchants.merchants m ON m."Id" = b."MerchantId"
        WHERE b."IsDeleted" = false
          AND lower(COALESCE(b."DataSourceKey",'')) = lower($1)
        ORDER BY b."DisplayOrder" ASC, b."CreatedAt" DESC`,
@@ -222,6 +227,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
           variantId: r.VariantId ? String(r.VariantId) : null,
           displayOrder: Number(r.DisplayOrder ?? 1),
           isActive: Boolean(r.IsActive),
+          isSponsored: Boolean(r.IsSponsored),
+          sponsoredUrl: (r.SponsoredUrl as string) ?? null,
+          merchantId: r.MerchantId ? String(r.MerchantId) : null,
+          merchantName: (r.MerchantName as string) ?? null,
         };
       }),
     });
@@ -428,12 +437,20 @@ export async function POST(request: NextRequest, { params }: Params) {
         );
       }
       const displayOrder = Number(body.displayOrder ?? 1);
+      const isSponsored = Boolean(body.isSponsored);
+      const sponsoredUrl = isSponsored
+        ? ((body.sponsoredUrl as string)?.trim() || null)
+        : null;
+      const merchantId =
+        typeof body.merchantId === 'string' && body.merchantId.trim()
+          ? body.merchantId.trim()
+          : null;
       const result = await query(
         `INSERT INTO content.product_detail_blocks
-          ("ProductId", "VariantId", "DataSourceKey", "DisplayOrder", "IsActive", "IsDeleted")
-         VALUES ($1, $2, $3, $4, true, false)
+          ("ProductId", "VariantId", "DataSourceKey", "DisplayOrder", "IsActive", "IsDeleted", "IsSponsored", "SponsoredUrl", "MerchantId")
+         VALUES ($1, $2, $3, $4, true, false, $5, $6, $7)
          RETURNING "Id"`,
-        [productId, body.variantId || null, key, displayOrder]
+        [productId, body.variantId || null, key, displayOrder, isSponsored, sponsoredUrl, merchantId]
       );
       return NextResponse.json(
         { data: { id: String((result.rows[0] as { Id: string }).Id) } },
