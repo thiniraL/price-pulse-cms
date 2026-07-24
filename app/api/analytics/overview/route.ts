@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
         with_results_searches: number;
       }>(
         `SELECT
-           COUNT(*)::int AS total_searches,
+           COALESCE(SUM(search_count), 0)::int AS total_searches,
            COUNT(DISTINCT normalized_query)::int AS unique_queries,
-           COUNT(*) FILTER (WHERE result_count = 0)::int AS zero_result_searches,
-           COUNT(*) FILTER (WHERE result_count > 0)::int AS with_results_searches
+           COALESCE(SUM(search_count) FILTER (WHERE result_count = 0), 0)::int AS zero_result_searches,
+           COALESCE(SUM(search_count) FILTER (WHERE result_count > 0), 0)::int AS with_results_searches
          FROM analytics.search_queries
          WHERE searched_at >= $1::timestamptz
            AND searched_at <= $2::timestamptz`,
@@ -106,8 +106,8 @@ export async function GET(request: NextRequest) {
       }>(
         `SELECT
            ${truncSql('searched_at', bucket)} AS bucket,
-           COUNT(*)::int AS searches,
-           COUNT(*) FILTER (WHERE result_count = 0)::int AS zero_results
+           COALESCE(SUM(search_count), 0)::int AS searches,
+           COALESCE(SUM(search_count) FILTER (WHERE result_count = 0), 0)::int AS zero_results
          FROM analytics.search_queries
          WHERE searched_at >= $1::timestamptz
            AND searched_at <= $2::timestamptz
@@ -129,10 +129,11 @@ export async function GET(request: NextRequest) {
       }>(
         `SELECT
            normalized_query AS query,
-           COUNT(*)::int AS searches,
+           COALESCE(SUM(search_count), 0)::int AS searches,
            ROUND(AVG(result_count)::numeric, 1)::float AS avg_result_count,
            ROUND(
-             (COUNT(*) FILTER (WHERE result_count = 0)::numeric / NULLIF(COUNT(*), 0)) * 100,
+             (COALESCE(SUM(search_count) FILTER (WHERE result_count = 0), 0)::numeric
+               / NULLIF(SUM(search_count), 0)) * 100,
              1
            )::float AS zero_share
          FROM analytics.search_queries
@@ -153,7 +154,7 @@ export async function GET(request: NextRequest) {
       const zeroResult = await query<{ query: string; searches: number }>(
         `SELECT
            normalized_query AS query,
-           COUNT(*)::int AS searches
+           COALESCE(SUM(search_count), 0)::int AS searches
          FROM analytics.search_queries
          WHERE searched_at >= $1::timestamptz
            AND searched_at <= $2::timestamptz
@@ -171,7 +172,7 @@ export async function GET(request: NextRequest) {
       const sourceResult = await query<{ source: string; searches: number }>(
         `SELECT
            COALESCE(source, 'unknown') AS source,
-           COUNT(*)::int AS searches
+           COALESCE(SUM(search_count), 0)::int AS searches
          FROM analytics.search_queries
          WHERE searched_at >= $1::timestamptz
            AND searched_at <= $2::timestamptz

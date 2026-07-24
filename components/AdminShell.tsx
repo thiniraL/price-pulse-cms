@@ -11,6 +11,7 @@ const NAV = [
   { href: '/page-sections', label: 'Page sections' },
   { href: '/merchants', label: 'Merchants' },
   { href: '/products', label: 'Products' },
+  { href: '/feedback', label: 'Feedback' },
 ];
 
 export default function AdminShell({

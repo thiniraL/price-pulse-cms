@@ -21,6 +21,11 @@ const cards = [
     title: 'Merchants',
     text: 'Create and edit merchants, and upload or replace logos in S3.',
   },
+  {
+    href: '/feedback',
+    title: 'Feedback',
+    text: 'Review user feedback messages and open attached screenshots in full view.',
+  },
 ];
 
 export default function DashboardPage() {
@@ -30,7 +35,7 @@ export default function DashboardPage() {
       <p className="mt-1 text-sm text-[var(--muted)]">
         Content, merchant admin, and search demand analytics for PricePulse.
       </p>
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
           <Link
             key={card.href}
