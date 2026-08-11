@@ -22,6 +22,11 @@ const cards = [
     text: 'Create and edit merchants, and upload or replace logos in S3.',
   },
   {
+    href: '/products',
+    title: 'Products',
+    text: 'Search products and manage variants, search tags, images, and merchant prices.',
+  },
+  {
     href: '/feedback',
     title: 'Feedback',
     text: 'Review user feedback messages and open attached screenshots in full view.',

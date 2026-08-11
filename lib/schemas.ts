@@ -52,12 +52,18 @@ export const pageSectionSchema = z.object({
 
 export const PRODUCT_STATUSES = ['Active', 'Inactive', 'Discontinued'] as const;
 
+const searchTagsSchema = z
+  .array(z.string().trim().min(1).max(100))
+  .max(40)
+  .optional();
+
 export const productUpdateSchema = z.object({
   name: z.string().min(1).max(1000),
   slug: z.string().max(500).nullable().optional(),
   status: z.enum(PRODUCT_STATUSES),
   categoryId: z.string().uuid().optional(),
   subcategoryId: z.string().uuid().optional(),
+  searchTags: searchTagsSchema,
 });
 
 export const variantSchema = z.object({
@@ -66,6 +72,16 @@ export const variantSchema = z.object({
   attrsKey: z.string().min(1).max(500).optional().default('default'),
   attrsJson: z.string().nullable().optional(),
   isDefault: z.boolean().optional().default(false),
+  searchTags: searchTagsSchema,
+});
+
+export const imagesUpdateSchema = z.object({
+  images: z.array(z.string().min(1).max(2000)).max(40),
+});
+
+export const imageDeleteSchema = z.object({
+  url: z.string().min(1).max(2000),
+  deleteFromS3: z.boolean().optional().default(true),
 });
 
 const nullableNumber = z

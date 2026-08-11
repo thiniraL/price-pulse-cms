@@ -1,3 +1,5 @@
+import { parseImageUrls, parseSearchTags } from './productMedia';
+
 export type ProductListItem = {
   id: string;
   name: string;
@@ -6,6 +8,8 @@ export type ProductListItem = {
   categoryId: string | null;
   categoryName: string | null;
   brandName: string | null;
+  thumbnailUrl: string | null;
+  searchTags: string[];
   updatedAt: string | null;
 };
 
@@ -19,6 +23,8 @@ export type ProductVariant = {
   isDefault: boolean;
   minPrice: number | null;
   maxPrice: number | null;
+  images: string[];
+  searchTags: string[];
   createdAt: string;
   updatedAt: string | null;
 };
@@ -58,6 +64,8 @@ export type ProductDetail = {
   modelNumber: string | null;
   mfrSku: string | null;
   description: string | null;
+  images: string[];
+  searchTags: string[];
   createdAt: string;
   updatedAt: string | null;
   variants: ProductVariant[];
@@ -79,6 +87,8 @@ export function mapProductListItem(row: Record<string, unknown>): ProductListIte
     categoryId: row.CategoryId ? String(row.CategoryId) : null,
     categoryName: (row.CategoryName as string) ?? null,
     brandName: (row.BrandName as string) ?? null,
+    thumbnailUrl: parseImageUrls(row.Images)[0] ?? null,
+    searchTags: parseSearchTags(row.search_tags),
     updatedAt: row.updated_at ? String(row.updated_at) : null,
   };
 }
@@ -100,6 +110,8 @@ export function mapVariant(row: Record<string, unknown>): ProductVariant {
     isDefault: Boolean(row.is_default),
     minPrice: num(row.min_price),
     maxPrice: num(row.max_price),
+    images: parseImageUrls(row.Images),
+    searchTags: parseSearchTags(row.search_tags),
     createdAt: String(row.created_at),
     updatedAt: row.updated_at ? String(row.updated_at) : null,
   };
@@ -147,6 +159,8 @@ export function mapProductDetail(
     modelNumber: (row.model_number as string) ?? null,
     mfrSku: (row.mfr_sku as string) ?? null,
     description: (row.Description as string) ?? null,
+    images: parseImageUrls(row.Images),
+    searchTags: parseSearchTags(row.search_tags),
     createdAt: String(row.created_at),
     updatedAt: row.updated_at ? String(row.updated_at) : null,
     variants,
@@ -157,7 +171,8 @@ export function mapProductDetail(
 export const VARIANT_SELECT = `
   "Id", "ProductId", "Sku", "Barcode",
   attrs_key, attrs_json, is_default,
-  min_price, max_price, created_at, updated_at
+  min_price, max_price, "Images", search_tags,
+  created_at, updated_at
 `;
 
 export const PRICE_SELECT = `

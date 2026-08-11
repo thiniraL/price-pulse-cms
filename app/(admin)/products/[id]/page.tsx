@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { PRODUCT_STATUSES } from '@/lib/schemas';
+import SearchTagsEditor from '@/components/SearchTagsEditor';
+import ProductImagesEditor from '@/components/ProductImagesEditor';
 
 type Variant = {
   id: string;
@@ -15,6 +17,8 @@ type Variant = {
   isDefault: boolean;
   minPrice: number | null;
   maxPrice: number | null;
+  images: string[];
+  searchTags: string[];
 };
 
 type PriceRow = {
@@ -42,6 +46,8 @@ type ProductDetail = {
   subcategoryName: string | null;
   modelNumber: string | null;
   mfrSku: string | null;
+  images: string[];
+  searchTags: string[];
   variants: Variant[];
   prices: PriceRow[];
 };
@@ -57,6 +63,7 @@ const emptyVariantForm = {
   attrsKey: 'default',
   attrsJson: '',
   isDefault: false,
+  searchTags: [] as string[],
 };
 
 const emptyPriceForm = {
@@ -91,7 +98,9 @@ export default function ProductManagePage() {
     name: '',
     slug: '',
     status: 'Active',
+    searchTags: [] as string[],
   });
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
 
   const [variantEditingId, setVariantEditingId] = useState<string | null>(null);
   const [showVariantForm, setShowVariantForm] = useState(false);
@@ -108,11 +117,22 @@ export default function ProductManagePage() {
       const productRes = await apiFetch<{ data: ProductDetail }>(
         `/api/products/${productId}`
       );
-      setProduct(productRes.data);
+      const data = {
+        ...productRes.data,
+        images: productRes.data.images || [],
+        searchTags: productRes.data.searchTags || [],
+        variants: (productRes.data.variants || []).map((v) => ({
+          ...v,
+          images: v.images || [],
+          searchTags: v.searchTags || [],
+        })),
+      };
+      setProduct(data);
       setBasics({
-        name: productRes.data.name,
-        slug: productRes.data.slug || '',
-        status: productRes.data.status || 'Active',
+        name: data.name,
+        slug: data.slug || '',
+        status: data.status || 'Active',
+        searchTags: data.searchTags,
       });
 
       const allMerchants: MerchantOption[] = [];
@@ -131,6 +151,15 @@ export default function ProductManagePage() {
       setMerchants(
         allMerchants.sort((a, b) => a.name.localeCompare(b.name))
       );
+
+      try {
+        const tagsRes = await apiFetch<{ data: string[] }>(
+          '/api/products/search-tags'
+        );
+        setTagSuggestions(tagsRes.data);
+      } catch {
+        setTagSuggestions([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
@@ -157,6 +186,7 @@ export default function ProductManagePage() {
             name: basics.name.trim(),
             slug: basics.slug.trim() || null,
             status: basics.status,
+            searchTags: basics.searchTags,
           }),
         }
       );
@@ -165,6 +195,7 @@ export default function ProductManagePage() {
         name: res.data.name,
         slug: res.data.slug || '',
         status: res.data.status,
+        searchTags: res.data.searchTags || [],
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
@@ -187,6 +218,7 @@ export default function ProductManagePage() {
       attrsKey: v.attrsKey || 'default',
       attrsJson: v.attrsJson || '',
       isDefault: v.isDefault,
+      searchTags: v.searchTags || [],
     });
     setShowVariantForm(true);
   }
@@ -202,6 +234,7 @@ export default function ProductManagePage() {
         attrsKey: variantForm.attrsKey.trim() || 'default',
         attrsJson: variantForm.attrsJson.trim() || null,
         isDefault: variantForm.isDefault,
+        searchTags: variantForm.searchTags,
       };
       if (variantEditingId) {
         await apiFetch(`/api/products/${productId}/variants/${variantEditingId}`, {
@@ -392,6 +425,19 @@ export default function ProductManagePage() {
             </select>
           </label>
           <div className="sm:col-span-2">
+            <span className="mb-1 block text-sm text-[var(--muted)]">
+              Search tags
+            </span>
+            <SearchTagsEditor
+              value={basics.searchTags}
+              suggestions={tagSuggestions}
+              disabled={saving}
+              onChange={(searchTags) =>
+                setBasics((s) => ({ ...s, searchTags }))
+              }
+            />
+          </div>
+          <div className="sm:col-span-2">
             <button
               type="submit"
               className="admin-btn admin-btn-primary"
@@ -401,6 +447,19 @@ export default function ProductManagePage() {
             </button>
           </div>
         </form>
+      </section>
+
+      <section className="admin-card space-y-4">
+        <h3 className="text-lg font-semibold">
+          Product images ({product.images.length})
+        </h3>
+        <ProductImagesEditor
+          images={product.images}
+          uploadUrl={`/api/products/${productId}/images`}
+          disabled={saving}
+          onChange={(images) => setProduct((p) => (p ? { ...p, images } : p))}
+          onError={setError}
+        />
       </section>
 
       <section className="admin-card space-y-4">
@@ -479,6 +538,51 @@ export default function ProductManagePage() {
                 placeholder='{"color":"Black"}'
               />
             </label>
+            <div className="sm:col-span-2">
+              <span className="mb-1 block text-sm text-[var(--muted)]">
+                Search tags
+              </span>
+              <SearchTagsEditor
+                value={variantForm.searchTags}
+                suggestions={tagSuggestions}
+                disabled={saving}
+                onChange={(searchTags) =>
+                  setVariantForm((s) => ({ ...s, searchTags }))
+                }
+              />
+            </div>
+            {variantEditingId ? (
+              <div className="sm:col-span-2 space-y-2">
+                <span className="block text-sm text-[var(--muted)]">
+                  Variant images
+                </span>
+                <ProductImagesEditor
+                  images={
+                    product.variants.find((v) => v.id === variantEditingId)
+                      ?.images || []
+                  }
+                  uploadUrl={`/api/products/${productId}/variants/${variantEditingId}/images`}
+                  disabled={saving}
+                  onChange={(images) =>
+                    setProduct((p) =>
+                      p
+                        ? {
+                            ...p,
+                            variants: p.variants.map((v) =>
+                              v.id === variantEditingId ? { ...v, images } : v
+                            ),
+                          }
+                        : p
+                    )
+                  }
+                  onError={setError}
+                />
+              </div>
+            ) : (
+              <p className="sm:col-span-2 text-sm text-[var(--muted)]">
+                Save the variant first, then you can upload its images.
+              </p>
+            )}
             <div className="flex gap-2 sm:col-span-2">
               <button
                 type="submit"
@@ -508,9 +612,10 @@ export default function ProductManagePage() {
             <table className="admin-table">
               <thead>
                 <tr>
+                  <th>Image</th>
                   <th>Attrs key</th>
                   <th>SKU</th>
-                  <th>Barcode</th>
+                  <th>Tags</th>
                   <th>Default</th>
                   <th>Min / Max</th>
                   <th />
@@ -519,9 +624,25 @@ export default function ProductManagePage() {
               <tbody>
                 {product.variants.map((v) => (
                   <tr key={v.id}>
+                    <td>
+                      {v.images[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={v.images[0]}
+                          alt=""
+                          className="h-12 w-12 rounded object-contain bg-slate-50"
+                        />
+                      ) : (
+                        <span className="text-[var(--muted)]">—</span>
+                      )}
+                    </td>
                     <td className="font-medium">{v.attrsKey}</td>
                     <td>{v.sku || '—'}</td>
-                    <td>{v.barcode || '—'}</td>
+                    <td>
+                      {v.searchTags.length
+                        ? v.searchTags.join(', ')
+                        : '—'}
+                    </td>
                     <td>{v.isDefault ? 'Yes' : '—'}</td>
                     <td>
                       {money(v.minPrice)} / {money(v.maxPrice)}

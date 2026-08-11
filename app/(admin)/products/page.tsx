@@ -12,6 +12,8 @@ type ProductRow = {
   status: string;
   categoryName: string | null;
   brandName: string | null;
+  thumbnailUrl: string | null;
+  searchTags: string[];
   updatedAt: string | null;
 };
 
@@ -64,7 +66,7 @@ export default function ProductsPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Products</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Search products, then open Manage to edit variants and merchant prices.
+          Search products, then open Manage to edit variants, search tags, images, and merchant prices.
         </p>
       </div>
 
@@ -108,10 +110,10 @@ export default function ProductsPage() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>Product</th>
                 <th>Brand</th>
                 <th>Category</th>
-                <th>Slug</th>
+                <th>Tags</th>
                 <th>Status</th>
                 <th />
               </tr>
@@ -119,11 +121,32 @@ export default function ProductsPage() {
             <tbody>
               {items.map((p) => (
                 <tr key={p.id}>
-                  <td className="font-medium">{p.name}</td>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      {p.thumbnailUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.thumbnailUrl}
+                          alt=""
+                          className="h-12 w-12 shrink-0 rounded object-contain bg-slate-50"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded bg-slate-100 text-[10px] text-[var(--muted)]">
+                          No img
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium">{p.name}</p>
+                        <p className="max-w-[220px] truncate text-xs text-[var(--muted)]">
+                          {p.slug || '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
                   <td>{p.brandName || '—'}</td>
                   <td>{p.categoryName || '—'}</td>
-                  <td className="max-w-[180px] truncate text-[var(--muted)]">
-                    {p.slug || '—'}
+                  <td className="max-w-[180px] text-xs text-[var(--muted)]">
+                    {p.searchTags?.length ? p.searchTags.join(', ') : '—'}
                   </td>
                   <td>
                     <span

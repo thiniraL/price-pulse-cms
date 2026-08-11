@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
   const offsetIdx = params.length + 2;
   const result = await query(
     `SELECT p."Id", p."Name", p."Slug", p."Status", p."CategoryId",
-            p.updated_at, c."Name" AS "CategoryName", b."Name" AS "BrandName"
+            p."Images", p.search_tags, p.updated_at,
+            c."Name" AS "CategoryName", b."Name" AS "BrandName"
      FROM products.products p
      LEFT JOIN products.categories c ON c."Id" = p."CategoryId"
      LEFT JOIN products.brands b ON b."Id" = p."BrandId"

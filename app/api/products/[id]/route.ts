@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { serializeSearchTags } from '@/lib/productMedia';
 import {
   mapMerchantPrice,
   mapProductDetail,
@@ -102,9 +103,22 @@ export async function PUT(request: NextRequest, { params }: Params) {
         "Status" = $4::products.product_status_enum,
         "CategoryId" = $5,
         "SubcategoryId" = $6,
+        search_tags = CASE
+          WHEN $7::boolean THEN $8::jsonb
+          ELSE search_tags
+        END,
         updated_at = NOW()
       WHERE "Id" = $1`,
-      [id, p.name, p.slug || null, p.status, categoryId, subcategoryId]
+      [
+        id,
+        p.name,
+        p.slug || null,
+        p.status,
+        categoryId,
+        subcategoryId,
+        p.searchTags !== undefined,
+        p.searchTags === undefined ? null : serializeSearchTags(p.searchTags),
+      ]
     );
 
     const data = await loadProductBundle(id);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { getPool, query } from '@/lib/db';
+import { serializeSearchTags } from '@/lib/productMedia';
 import { mapVariant, VARIANT_SELECT } from '@/lib/products';
 import { variantSchema } from '@/lib/schemas';
 
@@ -85,8 +86,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const result = await client.query(
       `INSERT INTO products.variants (
-        "ProductId", "Sku", "Barcode", attrs_key, attrs_json, is_default
-      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+        "ProductId", "Sku", "Barcode", attrs_key, attrs_json, is_default, search_tags
+      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb)
       RETURNING ${VARIANT_SELECT}`,
       [
         id,
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         attrsKey,
         attrsJson,
         v.isDefault ?? false,
+        v.searchTags === undefined ? null : serializeSearchTags(v.searchTags),
       ]
     );
     await client.query('COMMIT');

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { getPool, query } from '@/lib/db';
+import { serializeSearchTags } from '@/lib/productMedia';
 import { mapVariant, VARIANT_SELECT } from '@/lib/products';
 import { variantSchema } from '@/lib/schemas';
 
@@ -64,6 +65,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
         attrs_key = $5,
         attrs_json = $6::jsonb,
         is_default = $7,
+        search_tags = CASE
+          WHEN $8::boolean THEN $9::jsonb
+          ELSE search_tags
+        END,
         updated_at = NOW()
       WHERE "Id" = $1 AND "ProductId" = $2
       RETURNING ${VARIANT_SELECT}`,
@@ -75,6 +80,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
         attrsKey,
         attrsJson,
         v.isDefault ?? false,
+        v.searchTags !== undefined,
+        v.searchTags === undefined ? null : serializeSearchTags(v.searchTags),
       ]
     );
     await client.query('COMMIT');
