@@ -100,7 +100,7 @@ export default function FeedbackDetailPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                 Message
               </p>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+              <p className="mt-2 break-words whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">
                 {item.message}
               </p>
             </div>
@@ -169,7 +169,7 @@ function Meta({
       <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
         {label}
       </p>
-      <div className="mt-1 text-sm">{value}</div>
+      <div className="mt-1 break-words text-sm [overflow-wrap:anywhere]">{value}</div>
     </div>
   );
 }

@@ -100,7 +100,15 @@ export default function FeedbackPage() {
         ) : items.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">No feedback found.</p>
         ) : (
-          <table className="admin-table">
+          <table className="admin-table table-fixed min-w-[900px]">
+            <colgroup>
+              <col className="w-[160px]" />
+              <col />
+              <col className="w-[180px]" />
+              <col className="w-[180px]" />
+              <col className="w-[110px]" />
+              <col className="w-[88px]" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Submitted</th>
@@ -117,13 +125,24 @@ export default function FeedbackPage() {
                   <td className="whitespace-nowrap text-sm text-[var(--muted)]">
                     {formatFeedbackDate(item.createdAt)}
                   </td>
-                  <td className="max-w-[320px] font-medium">
-                    {truncateMessage(item.message)}
+                  <td className="overflow-hidden font-medium">
+                    <div className="truncate" title={item.message}>
+                      {truncateMessage(item.message)}
+                    </div>
                   </td>
-                  <td>{item.email || '—'}</td>
-                  <td className="max-w-[200px]">
-                    <div className="truncate">{item.productName || '—'}</div>
-                    <div className="truncate text-xs text-[var(--muted)]">
+                  <td className="overflow-hidden">
+                    <div className="truncate" title={item.email || undefined}>
+                      {item.email || '—'}
+                    </div>
+                  </td>
+                  <td className="overflow-hidden">
+                    <div className="truncate" title={item.productName || undefined}>
+                      {item.productName || '—'}
+                    </div>
+                    <div
+                      className="truncate text-xs text-[var(--muted)]"
+                      title={item.merchantName || undefined}
+                    >
                       {item.merchantName || '—'}
                     </div>
                   </td>
