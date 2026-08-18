@@ -202,10 +202,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
               COALESCE(b."IsSponsored", false) AS "IsSponsored",
               b."SponsoredUrl",
               b."MerchantId",
+              v.attrs_key AS "VariantAttrsKey",
+              v.is_default AS "VariantIsDefault",
+              v.search_tags AS "VariantSearchTags",
               m."Name" AS "MerchantName",
               p."Name" AS "ProductName", p."Slug" AS "ProductSlug"
        FROM content.product_detail_blocks b
        LEFT JOIN products.products p ON p."Id" = b."ProductId"
+       LEFT JOIN products.variants v ON v."Id" = b."VariantId"
        LEFT JOIN merchants.merchants m ON m."Id" = b."MerchantId"
        WHERE b."IsDeleted" = false
          AND lower(COALESCE(b."DataSourceKey",'')) = lower($1)
@@ -225,6 +229,11 @@ export async function GET(_request: NextRequest, { params }: Params) {
           productName: (r.ProductName as string) ?? null,
           productSlug: (r.ProductSlug as string) ?? null,
           variantId: r.VariantId ? String(r.VariantId) : null,
+          variantAttrsKey: (r.VariantAttrsKey as string) ?? null,
+          variantIsDefault: Boolean(r.VariantIsDefault),
+          variantSearchTags: Array.isArray(r.VariantSearchTags)
+            ? (r.VariantSearchTags as string[])
+            : [],
           displayOrder: Number(r.DisplayOrder ?? 1),
           isActive: Boolean(r.IsActive),
           isSponsored: Boolean(r.IsSponsored),

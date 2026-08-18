@@ -12,6 +12,13 @@ type ProductHit = {
   categoryName: string | null;
 };
 
+type ProductVariantHit = {
+  id: string;
+  attrsKey: string;
+  isDefault: boolean;
+  searchTags: string[];
+};
+
 type MerchantHit = {
   id: string;
   name: string;
@@ -87,6 +94,7 @@ export default function SectionItemsPanel({
   const [editSponsored, setEditSponsored] = useState(false);
   const [editSponsoredUrl, setEditSponsoredUrl] = useState('');
   const [editMerchantId, setEditMerchantId] = useState('');
+  const [editVariantId, setEditVariantId] = useState('');
   const [editIsActive, setEditIsActive] = useState(true);
   const [editDisplayOrder, setEditDisplayOrder] = useState('1');
   const [savingProductDetailId, setSavingProductDetailId] = useState<string | null>(null);
@@ -102,6 +110,9 @@ export default function SectionItemsPanel({
   const [selectedProduct, setSelectedProduct] = useState<ProductHit | null>(
     null
   );
+  const [productVariants, setProductVariants] = useState<ProductVariantHit[]>([]);
+  const [selectedVariantId, setSelectedVariantId] = useState('');
+  const [loadingVariants, setLoadingVariants] = useState(false);
 
   const [merchants, setMerchants] = useState<MerchantHit[]>([]);
   const [merchantId, setMerchantId] = useState('');
@@ -284,6 +295,47 @@ export default function SectionItemsPanel({
     }
   }
 
+  function formatVariantLabel(variant: ProductVariantHit) {
+    const tags =
+      variant.searchTags.length > 0
+        ? ` · tags: ${variant.searchTags.join(', ')}`
+        : '';
+    return `${variant.attrsKey || 'default'}${variant.isDefault ? ' (default)' : ''}${tags}`;
+  }
+
+  async function loadProductVariants(productId: string, preferVariantId?: string | null) {
+    setLoadingVariants(true);
+    try {
+      const res = await apiFetch<{ data: ProductVariantHit[] }>(
+        `/api/products/${productId}/variants`
+      );
+      const variants = Array.isArray(res.data) ? res.data : [];
+      setProductVariants(variants);
+
+      if (variants.length === 0) {
+        setSelectedVariantId('');
+        return;
+      }
+
+      const preferred = preferVariantId
+        ? variants.find((variant) => variant.id === preferVariantId)
+        : null;
+      if (preferred) {
+        setSelectedVariantId(preferred.id);
+        return;
+      }
+
+      const defaultVariant =
+        variants.find((variant) => variant.isDefault) || variants[0];
+      setSelectedVariantId(defaultVariant?.id || '');
+    } catch {
+      setProductVariants([]);
+      setSelectedVariantId('');
+    } finally {
+      setLoadingVariants(false);
+    }
+  }
+
   async function addProductDetail(e: FormEvent) {
     e.preventDefault();
     if (!selectedProduct) return;
@@ -294,6 +346,7 @@ export default function SectionItemsPanel({
         method: 'POST',
         body: JSON.stringify({
           productId: selectedProduct.id,
+          variantId: selectedVariantId || null,
           displayOrder:
             Number.isFinite(orderNum) && orderNum > 0
               ? orderNum
@@ -314,13 +367,15 @@ export default function SectionItemsPanel({
       setProductDetailMerchantId('');
       setProductDetailIsActive(true);
       setProductDetailDisplayOrder('');
+      setProductVariants([]);
+      setSelectedVariantId('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
     }
   }
 
-  function startEditProductDetail(item: Record<string, unknown>) {
+  async function startEditProductDetail(item: Record<string, unknown>) {
     setEditingProductDetailId(String(item.id));
     setEditSponsored(Boolean(item.isSponsored));
     setEditSponsoredUrl(
@@ -329,8 +384,16 @@ export default function SectionItemsPanel({
     setEditMerchantId(
       typeof item.merchantId === 'string' ? item.merchantId : ''
     );
+    const rowVariantId = typeof item.variantId === 'string' ? item.variantId : '';
+    setEditVariantId(rowVariantId);
     setEditIsActive(item.isActive !== false);
     setEditDisplayOrder(String(item.displayOrder ?? 1));
+    if (typeof item.productId === 'string') {
+      await loadProductVariants(item.productId, rowVariantId || null);
+    } else {
+      setProductVariants([]);
+      setSelectedVariantId('');
+    }
   }
 
   async function saveProductDetailRow(itemId: string) {
@@ -347,6 +410,7 @@ export default function SectionItemsPanel({
           isSponsored: editSponsored,
           sponsoredUrl: editSponsored ? editSponsoredUrl.trim() || null : null,
           merchantId: editMerchantId || null,
+          variantId: editVariantId || null,
         }),
       });
       setEditingProductDetailId(null);
@@ -501,6 +565,9 @@ export default function SectionItemsPanel({
       setCollectionProducts(next);
     } else {
       setSelectedProduct(p);
+      if (mode === 'product_detail_blocks') {
+        void loadProductVariants(p.id);
+      }
       if (mode === 'sponsored_products' && p.categoryId) {
         setCategoryId(p.categoryId);
       }
@@ -987,6 +1054,7 @@ export default function SectionItemsPanel({
                   <>
                     <th>Order</th>
                     <th>Product</th>
+                    <th>Variant</th>
                     <th>Active</th>
                     <th>Sponsored</th>
                     <th>Sponsored URL</th>
@@ -1032,6 +1100,33 @@ export default function SectionItemsPanel({
                         )}
                       </td>
                       <td>{String(item.productName || item.productId)}</td>
+                      <td className="min-w-[220px]">
+                        {editingProductDetailId === String(item.id) ? (
+                          <select
+                            className="admin-input"
+                            value={editVariantId}
+                            onChange={(e) => setEditVariantId(e.target.value)}
+                          >
+                            <option value="">No variant (product-level)</option>
+                            {productVariants.map((variant) => (
+                              <option key={variant.id} value={variant.id}>
+                                {formatVariantLabel(variant)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-xs text-[var(--muted)]">
+                            {typeof item.variantAttrsKey === 'string'
+                              ? `${item.variantAttrsKey}${item.variantIsDefault ? ' (default)' : ''}${
+                                  Array.isArray(item.variantSearchTags) &&
+                                  item.variantSearchTags.length > 0
+                                    ? ` · tags: ${(item.variantSearchTags as string[]).join(', ')}`
+                                    : ''
+                                }`
+                              : 'Product-level'}
+                          </span>
+                        )}
+                      </td>
                       <td>
                         {editingProductDetailId === String(item.id) ? (
                           <select
@@ -1129,7 +1224,9 @@ export default function SectionItemsPanel({
                           <button
                             type="button"
                             className="admin-btn admin-btn-secondary"
-                            onClick={() => startEditProductDetail(item)}
+                            onClick={() => {
+                              void startEditProductDetail(item);
+                            }}
                           >
                             Edit
                           </button>
@@ -1246,6 +1343,29 @@ export default function SectionItemsPanel({
             <p className="text-sm">
               Selected: <strong>{selectedProduct.name}</strong>
             </p>
+          ) : null}
+          {mode === 'product_detail_blocks' && selectedProduct ? (
+            <label className="block text-sm">
+              Variant
+              <select
+                className="admin-input mt-1"
+                value={selectedVariantId}
+                onChange={(e) => setSelectedVariantId(e.target.value)}
+                disabled={loadingVariants || productVariants.length === 0}
+              >
+                <option value="">No variant (product-level)</option>
+                {productVariants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {formatVariantLabel(variant)}
+                  </option>
+                ))}
+              </select>
+              {loadingVariants ? (
+                <span className="mt-1 block text-xs text-[var(--muted)]">
+                  Loading variants...
+                </span>
+              ) : null}
+            </label>
           ) : null}
           {mode === 'product_feature_collections' ? (
             <p className="text-xs text-[var(--muted)]">
