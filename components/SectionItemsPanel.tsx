@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import AdminModal from '@/components/AdminModal';
 import { apiFetch } from '@/lib/api';
 import type { SectionItemMode } from '@/lib/sectionItems';
 
@@ -157,6 +158,12 @@ export default function SectionItemsPanel({
   );
   const [pendingCollectionProduct, setPendingCollectionProduct] =
     useState<ProductHit | null>(null);
+  const [showAddProductDetailModal, setShowAddProductDetailModal] =
+    useState(false);
+  const [showAddCollectionModal, setShowAddCollectionModal] = useState(false);
+  const [showAddStoryModal, setShowAddStoryModal] = useState(false);
+  const [showAddAdModal, setShowAddAdModal] = useState(false);
+  const [showAddSponsoredModal, setShowAddSponsoredModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -352,6 +359,138 @@ export default function SectionItemsPanel({
     }
   }
 
+  function resetProductDetailAddForm() {
+    setSelectedProduct(null);
+    setProductQuery('');
+    setProductHits([]);
+    setProductDetailSponsored(false);
+    setProductDetailSponsoredUrl('');
+    setProductDetailMerchantId('');
+    setProductDetailIsActive(true);
+    setProductDetailDisplayOrder('');
+    setProductVariants([]);
+    setSelectedVariantId('');
+  }
+
+  function closeAddProductDetailModal() {
+    setShowAddProductDetailModal(false);
+    resetProductDetailAddForm();
+  }
+
+  function closeEditProductDetailModal() {
+    setEditingProductDetailId(null);
+    setProductVariants([]);
+  }
+
+  function closeAddCollectionModal() {
+    setShowAddCollectionModal(false);
+    setCollectionTitle('');
+    setCollectionDisplayOrder('');
+    setCollectionProducts([null, null, null, null]);
+    setPendingCollectionProduct(null);
+    setProductQuery('');
+    setProductHits([]);
+  }
+
+  function closeEditCollectionModal() {
+    setEditingCollectionId(null);
+    setPendingCollectionProduct(null);
+    setProductQuery('');
+    setProductHits([]);
+  }
+
+  function closeAddStoryModal() {
+    setShowAddStoryModal(false);
+    setMerchantId('');
+    setStoryImage('');
+    setStoryCta('Shop now');
+    setStoryUrl('');
+    setStoryFile(null);
+    setStoryIsActive(true);
+  }
+
+  function closeEditStoryModal() {
+    setEditingStoryId(null);
+  }
+
+  function closeAddAdModal() {
+    setShowAddAdModal(false);
+    setAdMerchantId('');
+    setAdClickUrl('#');
+    setAdTitle('');
+    setAdFile(null);
+  }
+
+  function closeAddSponsoredModal() {
+    setShowAddSponsoredModal(false);
+    setSelectedProduct(null);
+    setProductQuery('');
+    setProductHits([]);
+    setMerchantId('');
+    setCategoryId('');
+  }
+
+  function renderProductSearch() {
+    return (
+      <>
+        <label className="block text-sm">
+          Search products
+          <input
+            className="admin-input mt-1"
+            value={productQuery}
+            onChange={(e) => searchProducts(e.target.value)}
+            placeholder="Type product name…"
+          />
+        </label>
+        {productHits.length > 0 ? (
+          <ul className="max-h-40 overflow-auto rounded-lg border border-[var(--border)] bg-white text-sm">
+            {productHits.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 text-left hover:bg-slate-50"
+                  onClick={() => pickProduct(p)}
+                >
+                  {p.name}
+                  {p.categoryName ? (
+                    <span className="text-[var(--muted)]"> · {p.categoryName}</span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </>
+    );
+  }
+
+  function renderCollectionSlots(isEdit: boolean) {
+    const slots = isEdit ? editCollectionProducts : collectionProducts;
+    return (
+      <div className="space-y-1 text-xs">
+        {slots.map((product, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">
+              {index + 1}
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {product?.name || '— empty —'}
+            </span>
+            {product ? (
+              <button
+                type="button"
+                className="text-[var(--danger)]"
+                onClick={() => clearCollectionSlot(index, isEdit)}
+              >
+                Remove
+              </button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   async function addProductDetail(e: FormEvent) {
     e.preventDefault();
     if (!selectedProduct) return;
@@ -375,16 +514,8 @@ export default function SectionItemsPanel({
           merchantId: productDetailMerchantId || null,
         }),
       });
-      setSelectedProduct(null);
-      setProductQuery('');
-      setProductHits([]);
-      setProductDetailSponsored(false);
-      setProductDetailSponsoredUrl('');
-      setProductDetailMerchantId('');
-      setProductDetailIsActive(true);
-      setProductDetailDisplayOrder('');
-      setProductVariants([]);
-      setSelectedVariantId('');
+      setShowAddProductDetailModal(false);
+      resetProductDetailAddForm();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
@@ -430,6 +561,7 @@ export default function SectionItemsPanel({
         }),
       });
       setEditingProductDetailId(null);
+      setProductVariants([]);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
@@ -464,12 +596,7 @@ export default function SectionItemsPanel({
           previousUrl: storyImage || null,
         });
       }
-      setMerchantId('');
-      setStoryImage('');
-      setStoryCta('Shop now');
-      setStoryUrl('');
-      setStoryFile(null);
-      setStoryIsActive(true);
+      closeAddStoryModal();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
@@ -501,10 +628,7 @@ export default function SectionItemsPanel({
           sectionId,
         });
       }
-      setAdMerchantId('');
-      setAdClickUrl('#');
-      setAdTitle('');
-      setAdFile(null);
+      closeAddAdModal();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add ad failed');
@@ -641,6 +765,9 @@ export default function SectionItemsPanel({
         }),
       });
       setEditingCollectionId(null);
+      setPendingCollectionProduct(null);
+      setProductQuery('');
+      setProductHits([]);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
@@ -668,11 +795,7 @@ export default function SectionItemsPanel({
               : items.length + 1,
         }),
       });
-      setCollectionTitle('');
-      setCollectionDisplayOrder('');
-      setCollectionProducts([null, null, null, null]);
-      setProductQuery('');
-      setProductHits([]);
+      closeAddCollectionModal();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
@@ -696,10 +819,7 @@ export default function SectionItemsPanel({
           displayOrder: items.length + 1,
         }),
       });
-      setSelectedProduct(null);
-      setProductQuery('');
-      setMerchantId('');
-      setCategoryId('');
+      closeAddSponsoredModal();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
@@ -852,7 +972,16 @@ export default function SectionItemsPanel({
       {/* Story feed — Image column */}
       {!loading && mode === 'story_feed' ? (
         <div className="mt-4 space-y-3">
-          <h4 className="font-semibold">Stories (`story_feed.Image`)</h4>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="font-semibold">Stories (`story_feed.Image`)</h4>
+            <button
+              type="button"
+              className="admin-btn admin-btn-primary"
+              onClick={() => setShowAddStoryModal(true)}
+            >
+              Add story
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="admin-table">
               <thead>
@@ -870,7 +999,6 @@ export default function SectionItemsPanel({
                 {items.map((item) => {
                   const image = String(item.image || '');
                   const id = String(item.id);
-                  const editing = editingStoryId === id;
                   return (
                     <tr key={id}>
                       <td>
@@ -886,62 +1014,16 @@ export default function SectionItemsPanel({
                         )}
                       </td>
                       <td className="min-w-[140px]">
-                        {editing ? (
-                          <select
-                            className="admin-input"
-                            value={editStoryMerchantId}
-                            onChange={(e) => setEditStoryMerchantId(e.target.value)}
-                          >
-                            <option value="">Select merchant…</option>
-                            {merchants.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          String(item.merchantName || item.merchantId)
-                        )}
+                        {String(item.merchantName || item.merchantId)}
                       </td>
-                      <td className="min-w-[120px]">
-                        {editing ? (
-                          <input
-                            className="admin-input"
-                            value={editStoryCta}
-                            onChange={(e) => setEditStoryCta(e.target.value)}
-                          />
-                        ) : (
-                          String(item.cta)
-                        )}
-                      </td>
+                      <td className="min-w-[120px]">{String(item.cta)}</td>
                       <td className="min-w-[180px]">
-                        {editing ? (
-                          <input
-                            className="admin-input"
-                            type="url"
-                            placeholder="https://…"
-                            value={editStoryUrl}
-                            onChange={(e) => setEditStoryUrl(e.target.value)}
-                          />
-                        ) : (
-                          <span className="break-all text-xs text-[var(--muted)]">
-                            {String(item.storyUrl || '—')}
-                          </span>
-                        )}
+                        <span className="break-all text-xs text-[var(--muted)]">
+                          {String(item.storyUrl || '—')}
+                        </span>
                       </td>
                       <td>
-                        {editing ? (
-                          <select
-                            className="admin-input"
-                            value={editStoryIsActive ? 'active' : 'inactive'}
-                            onChange={(e) =>
-                              setEditStoryIsActive(e.target.value === 'active')
-                            }
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        ) : item.isActive !== false ? (
+                        {item.isActive !== false ? (
                           <span className="text-[var(--accent)]">Active</span>
                         ) : (
                           <span className="text-[var(--muted)]">Inactive</span>
@@ -963,33 +1045,13 @@ export default function SectionItemsPanel({
                         ) : null}
                       </td>
                       <td className="space-x-2 whitespace-nowrap">
-                        {editing ? (
-                          <>
-                            <button
-                              type="button"
-                              className="admin-btn admin-btn-primary"
-                              disabled={savingStoryId === id}
-                              onClick={() => saveStoryRow(id)}
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              className="admin-btn admin-btn-secondary"
-                              onClick={() => setEditingStoryId(null)}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn-secondary"
-                            onClick={() => startEditStory(item)}
-                          >
-                            Edit
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-secondary"
+                          onClick={() => startEditStory(item)}
+                        >
+                          Edit
+                        </button>
                         <button
                           type="button"
                           className="admin-btn admin-btn-danger"
@@ -1011,85 +1073,22 @@ export default function SectionItemsPanel({
               </tbody>
             </table>
           </div>
-
-          <form className="space-y-3 rounded-lg border border-[var(--border)] p-3" onSubmit={addStory}>
-            <p className="text-sm font-medium">Add merchant story</p>
-            <label className="block text-sm">
-              Merchant
-              <select
-                className="admin-input mt-1"
-                required
-                value={merchantId}
-                onChange={(e) => setMerchantId(e.target.value)}
-              >
-                <option value="">Select merchant…</option>
-                {merchants.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              Status
-              <select
-                className="admin-input mt-1"
-                value={storyIsActive ? 'active' : 'inactive'}
-                onChange={(e) => setStoryIsActive(e.target.value === 'active')}
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
-            <label className="block text-sm">
-              Upload image (S3)
-              <input
-                className="mt-1 block w-full text-sm"
-                type="file"
-                accept="image/*"
-                onChange={(e) => setStoryFile(e.target.files?.[0] || null)}
-              />
-            </label>
-            <label className="block text-sm">
-              Or paste image URL
-              <input
-                className="admin-input mt-1"
-                value={storyImage}
-                onChange={(e) => setStoryImage(e.target.value)}
-                placeholder="https://… (optional if uploading)"
-              />
-            </label>
-            <label className="block text-sm">
-              CTA
-              <input
-                className="admin-input mt-1"
-                value={storyCta}
-                onChange={(e) => setStoryCta(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm">
-              Story URL
-              <input
-                className="admin-input mt-1"
-                value={storyUrl}
-                onChange={(e) => setStoryUrl(e.target.value)}
-              />
-            </label>
-            <button
-              type="submit"
-              className="admin-btn admin-btn-primary"
-              disabled={!storyFile && !storyImage}
-            >
-              Add merchant story
-            </button>
-          </form>
         </div>
       ) : null}
 
       {/* Ads — ImageUrl column */}
       {!loading && (adsEnabled || ads.length > 0) ? (
         <div className="mt-6 space-y-3">
-          <h4 className="font-semibold">Section ads (`ads_feed.ImageUrl`)</h4>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="font-semibold">Section ads (`ads_feed.ImageUrl`)</h4>
+            <button
+              type="button"
+              className="admin-btn admin-btn-primary"
+              onClick={() => setShowAddAdModal(true)}
+            >
+              Add ad
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="admin-table">
               <thead>
@@ -1151,64 +1150,46 @@ export default function SectionItemsPanel({
               </tbody>
             </table>
           </div>
-
-          <form className="space-y-3 rounded-lg border border-[var(--border)] p-3" onSubmit={addAd}>
-            <p className="text-sm font-medium">Add section ad</p>
-            <label className="block text-sm">
-              Merchant
-              <select
-                className="admin-input mt-1"
-                required
-                value={adMerchantId}
-                onChange={(e) => setAdMerchantId(e.target.value)}
-              >
-                <option value="">Select merchant…</option>
-                {merchants.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              Title
-              <input
-                className="admin-input mt-1"
-                value={adTitle}
-                onChange={(e) => setAdTitle(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm">
-              Click URL
-              <input
-                className="admin-input mt-1"
-                value={adClickUrl}
-                onChange={(e) => setAdClickUrl(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm">
-              Upload image (S3)
-              <input
-                className="mt-1 block w-full text-sm"
-                type="file"
-                accept="image/*"
-                onChange={(e) => setAdFile(e.target.files?.[0] || null)}
-              />
-            </label>
-            <button type="submit" className="admin-btn admin-btn-primary">
-              Add ad
-            </button>
-          </form>
         </div>
       ) : null}
 
-      {/* Other modes (products) — existing table without images */}
+      {/* Other modes (products) — table list */}
       {!loading &&
       mode !== 'none' &&
       mode !== 'computed' &&
       mode !== 'story_feed' &&
       mode !== 'price_drops' ? (
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap justify-end gap-2">
+            {mode === 'product_detail_blocks' ? (
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary"
+                onClick={() => setShowAddProductDetailModal(true)}
+              >
+                Add product
+              </button>
+            ) : null}
+            {mode === 'product_feature_collections' ? (
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary"
+                onClick={() => setShowAddCollectionModal(true)}
+              >
+                Add collection
+              </button>
+            ) : null}
+            {mode === 'sponsored_products' ? (
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary"
+                onClick={() => setShowAddSponsoredModal(true)}
+              >
+                Add sponsored product
+              </button>
+            ) : null}
+          </div>
+          <div className="overflow-x-auto">
           <table className="admin-table">
             <thead>
               <tr>
@@ -1248,151 +1229,50 @@ export default function SectionItemsPanel({
                 <tr key={String(item.id)}>
                   {mode === 'product_detail_blocks' ? (
                     <>
-                      <td className="min-w-[70px]">
-                        {editingProductDetailId === String(item.id) ? (
-                          <input
-                            className="admin-input w-20"
-                            type="number"
-                            min={1}
-                            value={editDisplayOrder}
-                            onChange={(e) => setEditDisplayOrder(e.target.value)}
-                          />
-                        ) : (
-                          String(item.displayOrder)
-                        )}
-                      </td>
+                      <td>{String(item.displayOrder)}</td>
                       <td>{String(item.productName || item.productId)}</td>
                       <td className="min-w-[220px]">
-                        {editingProductDetailId === String(item.id) ? (
-                          <select
-                            className="admin-input"
-                            value={editVariantId}
-                            onChange={(e) => setEditVariantId(e.target.value)}
-                          >
-                            <option value="">No variant (product-level)</option>
-                            {productVariants.map((variant) => (
-                              <option key={variant.id} value={variant.id}>
-                                {formatVariantLabel(variant)}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-xs text-[var(--muted)]">
-                            {typeof item.variantAttrsKey === 'string'
-                              ? `${item.variantAttrsKey}${item.variantIsDefault ? ' (default)' : ''}${
-                                  Array.isArray(item.variantSearchTags) &&
-                                  item.variantSearchTags.length > 0
-                                    ? ` · tags: ${(item.variantSearchTags as string[]).join(', ')}`
-                                    : ''
-                                }`
-                              : 'Product-level'}
-                          </span>
-                        )}
+                        <span className="text-xs text-[var(--muted)]">
+                          {typeof item.variantAttrsKey === 'string'
+                            ? `${item.variantAttrsKey}${item.variantIsDefault ? ' (default)' : ''}${
+                                Array.isArray(item.variantSearchTags) &&
+                                item.variantSearchTags.length > 0
+                                  ? ` · tags: ${(item.variantSearchTags as string[]).join(', ')}`
+                                  : ''
+                              }`
+                            : 'Product-level'}
+                        </span>
                       </td>
                       <td>
-                        {editingProductDetailId === String(item.id) ? (
-                          <select
-                            className="admin-input"
-                            value={editIsActive ? 'active' : 'inactive'}
-                            onChange={(e) =>
-                              setEditIsActive(e.target.value === 'active')
-                            }
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        ) : item.isActive ? (
+                        {item.isActive ? (
                           <span className="text-[var(--accent)]">Active</span>
                         ) : (
                           <span className="text-[var(--muted)]">Inactive</span>
                         )}
                       </td>
-                      <td>
-                        {editingProductDetailId === String(item.id) ? (
-                          <label className="inline-flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={editSponsored}
-                              onChange={(e) => setEditSponsored(e.target.checked)}
-                            />
-                            Sponsored
-                          </label>
-                        ) : item.isSponsored ? (
-                          'Yes'
-                        ) : (
-                          'No'
-                        )}
-                      </td>
+                      <td>{item.isSponsored ? 'Yes' : 'No'}</td>
                       <td className="min-w-[180px]">
-                        {editingProductDetailId === String(item.id) ? (
-                          <input
-                            className="admin-input"
-                            type="url"
-                            placeholder="https://…"
-                            disabled={!editSponsored}
-                            value={editSponsoredUrl}
-                            onChange={(e) => setEditSponsoredUrl(e.target.value)}
-                          />
-                        ) : (
-                          <span className="break-all text-xs text-[var(--muted)]">
-                            {item.isSponsored
-                              ? String(item.sponsoredUrl || '—')
-                              : '—'}
-                          </span>
-                        )}
+                        <span className="break-all text-xs text-[var(--muted)]">
+                          {item.isSponsored
+                            ? String(item.sponsoredUrl || '—')
+                            : '—'}
+                        </span>
                       </td>
                       <td className="min-w-[160px]">
-                        {editingProductDetailId === String(item.id) ? (
-                          <select
-                            className="admin-input"
-                            value={editMerchantId}
-                            onChange={(e) => setEditMerchantId(e.target.value)}
-                          >
-                            <option value="">No merchant</option>
-                            {merchants.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-sm">
-                            {String(item.merchantName || '—')}
-                          </span>
-                        )}
+                        <span className="text-sm">
+                          {String(item.merchantName || '—')}
+                        </span>
                       </td>
                       <td className="space-x-2 whitespace-nowrap">
-                        {editingProductDetailId === String(item.id) ? (
-                          <>
-                            <button
-                              type="button"
-                              className="admin-btn admin-btn-primary"
-                              disabled={savingProductDetailId === String(item.id)}
-                              onClick={() =>
-                                saveProductDetailRow(String(item.id))
-                              }
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              className="admin-btn admin-btn-secondary"
-                              onClick={() => setEditingProductDetailId(null)}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn-secondary"
-                            onClick={() => {
-                              void startEditProductDetail(item);
-                            }}
-                          >
-                            Edit
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-secondary"
+                          onClick={() => {
+                            void startEditProductDetail(item);
+                          }}
+                        >
+                          Edit
+                        </button>
                         <button
                           type="button"
                           className="admin-btn admin-btn-danger"
@@ -1405,115 +1285,28 @@ export default function SectionItemsPanel({
                   ) : null}
                   {mode === 'product_feature_collections' ? (
                     <>
-                      <td className="min-w-[70px]">
-                        {editingCollectionId === String(item.id) ? (
-                          <input
-                            className="admin-input w-20"
-                            type="number"
-                            min={1}
-                            value={editCollectionDisplayOrder}
-                            onChange={(e) =>
-                              setEditCollectionDisplayOrder(e.target.value)
-                            }
-                          />
-                        ) : (
-                          String(item.displayOrder)
-                        )}
-                      </td>
-                      <td className="min-w-[160px]">
-                        {editingCollectionId === String(item.id) ? (
-                          <input
-                            className="admin-input"
-                            value={editCollectionTitle}
-                            onChange={(e) =>
-                              setEditCollectionTitle(e.target.value)
-                            }
-                          />
-                        ) : (
-                          String(item.title)
-                        )}
-                      </td>
+                      <td>{String(item.displayOrder)}</td>
+                      <td>{String(item.title)}</td>
                       <td className="min-w-[280px]">
-                        {editingCollectionId === String(item.id) ? (
-                          <div className="space-y-1">
-                            {editCollectionProducts.map((product, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-2 text-xs"
-                              >
-                                <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">
-                                  {index + 1}
-                                </span>
-                                <span className="min-w-0 flex-1 truncate">
-                                  {product?.name || '— empty —'}
-                                </span>
-                                {product ? (
-                                  <button
-                                    type="button"
-                                    className="text-[var(--danger)]"
-                                    onClick={() =>
-                                      clearCollectionSlot(index, true)
-                                    }
-                                  >
-                                    Remove
-                                  </button>
-                                ) : (
-                                  <span className="text-[var(--muted)]">
-                                    Add below
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                            <p className="text-[var(--muted)]">
-                              Search below and click Add product. Max 4 products.
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-xs">
-                            {[
-                              item.productName1,
-                              item.productName2,
-                              item.productName3,
-                              item.productName4,
-                            ]
-                              .filter(Boolean)
-                              .join(', ') || '—'}
-                          </span>
-                        )}
+                        <span className="text-xs">
+                          {[
+                            item.productName1,
+                            item.productName2,
+                            item.productName3,
+                            item.productName4,
+                          ]
+                            .filter(Boolean)
+                            .join(', ') || '—'}
+                        </span>
                       </td>
                       <td className="space-x-2 whitespace-nowrap">
-                        {editingCollectionId === String(item.id) ? (
-                          <>
-                            <button
-                              type="button"
-                              className="admin-btn admin-btn-primary"
-                              disabled={savingCollectionId === String(item.id)}
-                              onClick={() => saveCollectionRow(String(item.id))}
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              className="admin-btn admin-btn-secondary"
-                              onClick={() => {
-                                setEditingCollectionId(null);
-                                setPendingCollectionProduct(null);
-                                setProductQuery('');
-                                setProductHits([]);
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn-secondary"
-                            onClick={() => startEditCollection(item)}
-                          >
-                            Edit
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-secondary"
+                          onClick={() => startEditCollection(item)}
+                        >
+                          Edit
+                        </button>
                         <button
                           type="button"
                           className="admin-btn admin-btn-danger"
@@ -1555,83 +1348,149 @@ export default function SectionItemsPanel({
               ) : null}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
 
-      {(mode === 'product_detail_blocks' ||
-        mode === 'sponsored_products' ||
-        mode === 'product_feature_collections') && (
-        <div className="mt-4 space-y-2">
-          {mode === 'product_feature_collections' ? (
-            <>
-              <p className="text-sm font-medium">
-                {editingCollectionId
-                  ? 'Add product to this collection'
-                  : 'Add products to new collection'}
-              </p>
-              <p className="text-xs text-[var(--muted)]">
-                Search a product, then click Add product. It fills the next empty
-                slot (max 4).
-              </p>
-            </>
-          ) : null}
-          <label className="block text-sm">
-            Search products
-            <input
-              className="admin-input mt-1"
-              value={productQuery}
-              onChange={(e) => searchProducts(e.target.value)}
-              placeholder="Type product name…"
-            />
-          </label>
-          {productHits.length > 0 ? (
-            <ul className="max-h-40 overflow-auto rounded-lg border border-[var(--border)] bg-white text-sm">
-              {productHits.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2 text-left hover:bg-slate-50"
-                    onClick={() => pickProduct(p)}
-                  >
-                    {p.name}
-                    {p.categoryName ? (
-                      <span className="text-[var(--muted)]">
-                        {' '}
-                        · {p.categoryName}
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {mode === 'product_feature_collections' && pendingCollectionProduct ? (
-            <div className="flex flex-wrap items-center gap-2">
+      {/* Add product detail modal */}
+      {mode === 'product_detail_blocks' ? (
+        <AdminModal
+          open={showAddProductDetailModal}
+          title="Add product to section"
+          onClose={closeAddProductDetailModal}
+          wide
+        >
+          <form className="space-y-3" onSubmit={addProductDetail}>
+            {renderProductSearch()}
+            {selectedProduct ? (
               <p className="text-sm">
-                Selected: <strong>{pendingCollectionProduct.name}</strong>
+                Selected: <strong>{selectedProduct.name}</strong>
               </p>
+            ) : null}
+            {selectedProduct ? (
+              <label className="block text-sm">
+                Variant
+                <select
+                  className="admin-input mt-1"
+                  value={selectedVariantId}
+                  onChange={(e) => setSelectedVariantId(e.target.value)}
+                  disabled={loadingVariants || productVariants.length === 0}
+                >
+                  <option value="">No variant (product-level)</option>
+                  {productVariants.map((variant) => (
+                    <option key={variant.id} value={variant.id}>
+                      {formatVariantLabel(variant)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <div className="flex flex-wrap gap-4">
+              <label className="block text-sm">
+                Status
+                <select
+                  className="admin-input mt-1"
+                  value={productDetailIsActive ? 'active' : 'inactive'}
+                  onChange={(e) =>
+                    setProductDetailIsActive(e.target.value === 'active')
+                  }
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                Display order
+                <input
+                  className="admin-input mt-1 w-28"
+                  type="number"
+                  min={1}
+                  placeholder={String(items.length + 1)}
+                  value={productDetailDisplayOrder}
+                  onChange={(e) => setProductDetailDisplayOrder(e.target.value)}
+                />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={productDetailSponsored}
+                onChange={(e) => setProductDetailSponsored(e.target.checked)}
+              />
+              Sponsored
+            </label>
+            {productDetailSponsored ? (
+              <label className="block text-sm">
+                Sponsored link URL
+                <input
+                  className="admin-input mt-1"
+                  type="url"
+                  placeholder="https://…"
+                  value={productDetailSponsoredUrl}
+                  onChange={(e) => setProductDetailSponsoredUrl(e.target.value)}
+                />
+              </label>
+            ) : null}
+            <label className="block text-sm">
+              Merchant
+              <select
+                className="admin-input mt-1"
+                value={productDetailMerchantId}
+                onChange={(e) => setProductDetailMerchantId(e.target.value)}
+              >
+                <option value="">No merchant</option>
+                {merchants.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex gap-2">
               <button
-                type="button"
+                type="submit"
                 className="admin-btn admin-btn-primary"
-                onClick={() => addProductToCollection(pendingCollectionProduct)}
+                disabled={!selectedProduct}
               >
                 Add product
               </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeAddProductDetailModal}
+              >
+                Cancel
+              </button>
             </div>
-          ) : null}
-          {mode !== 'product_feature_collections' && selectedProduct ? (
-            <p className="text-sm">
-              Selected: <strong>{selectedProduct.name}</strong>
-            </p>
-          ) : null}
-          {mode === 'product_detail_blocks' && selectedProduct ? (
+          </form>
+        </AdminModal>
+      ) : null}
+
+      {/* Edit product detail modal */}
+      {mode === 'product_detail_blocks' && editingProductDetailId ? (
+        <AdminModal
+          open={Boolean(editingProductDetailId)}
+          title="Edit product in section"
+          onClose={closeEditProductDetailModal}
+          wide
+        >
+          <div className="space-y-3">
+            <label className="block text-sm">
+              Display order
+              <input
+                className="admin-input mt-1 w-28"
+                type="number"
+                min={1}
+                value={editDisplayOrder}
+                onChange={(e) => setEditDisplayOrder(e.target.value)}
+              />
+            </label>
             <label className="block text-sm">
               Variant
               <select
                 className="admin-input mt-1"
-                value={selectedVariantId}
-                onChange={(e) => setSelectedVariantId(e.target.value)}
-                disabled={loadingVariants || productVariants.length === 0}
+                value={editVariantId}
+                onChange={(e) => setEditVariantId(e.target.value)}
               >
                 <option value="">No variant (product-level)</option>
                 {productVariants.map((variant) => (
@@ -1640,59 +1499,91 @@ export default function SectionItemsPanel({
                   </option>
                 ))}
               </select>
-              {loadingVariants ? (
-                <span className="mt-1 block text-xs text-[var(--muted)]">
-                  Loading variants...
-                </span>
-              ) : null}
             </label>
-          ) : null}
-          {mode === 'product_feature_collections' ? (
-            <div className="space-y-1 text-xs text-[var(--muted)]">
-              <p className="font-medium text-[var(--foreground)]">
-                {editingCollectionId ? 'Editing slots' : 'New collection slots'}
-              </p>
-              {(editingCollectionId
-                ? editCollectionProducts
-                : collectionProducts
-              ).map((product, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <span>
-                    {index + 1}: {product?.name || '— empty —'}
-                  </span>
-                  {product ? (
-                    <button
-                      type="button"
-                      className="text-[var(--danger)]"
-                      onClick={() =>
-                        clearCollectionSlot(index, Boolean(editingCollectionId))
-                      }
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {mode === 'product_detail_blocks' ? (
-        <form className="mt-3 space-y-3" onSubmit={addProductDetail}>
-          <div className="flex flex-wrap gap-4">
             <label className="block text-sm">
               Status
               <select
                 className="admin-input mt-1"
-                value={productDetailIsActive ? 'active' : 'inactive'}
-                onChange={(e) =>
-                  setProductDetailIsActive(e.target.value === 'active')
-                }
+                value={editIsActive ? 'active' : 'inactive'}
+                onChange={(e) => setEditIsActive(e.target.value === 'active')}
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editSponsored}
+                onChange={(e) => setEditSponsored(e.target.checked)}
+              />
+              Sponsored
+            </label>
+            {editSponsored ? (
+              <label className="block text-sm">
+                Sponsored link URL
+                <input
+                  className="admin-input mt-1"
+                  type="url"
+                  placeholder="https://…"
+                  value={editSponsoredUrl}
+                  onChange={(e) => setEditSponsoredUrl(e.target.value)}
+                />
+              </label>
+            ) : null}
+            <label className="block text-sm">
+              Merchant
+              <select
+                className="admin-input mt-1"
+                value={editMerchantId}
+                onChange={(e) => setEditMerchantId(e.target.value)}
+              >
+                <option value="">No merchant</option>
+                {merchants.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary"
+                disabled={savingProductDetailId === editingProductDetailId}
+                onClick={() => saveProductDetailRow(editingProductDetailId)}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeEditProductDetailModal}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </AdminModal>
+      ) : null}
+
+      {/* Add collection modal */}
+      {mode === 'product_feature_collections' ? (
+        <AdminModal
+          open={showAddCollectionModal}
+          title="Add collection"
+          onClose={closeAddCollectionModal}
+          wide
+        >
+          <form className="space-y-3" onSubmit={addCollection}>
+            <label className="block text-sm">
+              Collection title
+              <input
+                className="admin-input mt-1"
+                required
+                value={collectionTitle}
+                onChange={(e) => setCollectionTitle(e.target.value)}
+              />
             </label>
             <label className="block text-sm">
               Display order
@@ -1701,126 +1592,407 @@ export default function SectionItemsPanel({
                 type="number"
                 min={1}
                 placeholder={String(items.length + 1)}
-                value={productDetailDisplayOrder}
-                onChange={(e) => setProductDetailDisplayOrder(e.target.value)}
+                value={collectionDisplayOrder}
+                onChange={(e) => setCollectionDisplayOrder(e.target.value)}
               />
             </label>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={productDetailSponsored}
-              onChange={(e) => setProductDetailSponsored(e.target.checked)}
-            />
-            Sponsored
-          </label>
-          {productDetailSponsored ? (
+            {renderCollectionSlots(false)}
+            {renderProductSearch()}
+            {pendingCollectionProduct ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm">
+                  Selected: <strong>{pendingCollectionProduct.name}</strong>
+                </p>
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-secondary"
+                  onClick={() =>
+                    addProductToCollection(pendingCollectionProduct)
+                  }
+                >
+                  Add product
+                </button>
+              </div>
+            ) : null}
+            <div className="flex gap-2">
+              <button type="submit" className="admin-btn admin-btn-primary">
+                Save collection
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeAddCollectionModal}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </AdminModal>
+      ) : null}
+
+      {/* Edit collection modal */}
+      {mode === 'product_feature_collections' && editingCollectionId ? (
+        <AdminModal
+          open={Boolean(editingCollectionId)}
+          title="Edit collection"
+          onClose={closeEditCollectionModal}
+          wide
+        >
+          <div className="space-y-3">
             <label className="block text-sm">
-              Sponsored link URL
+              Collection title
+              <input
+                className="admin-input mt-1"
+                value={editCollectionTitle}
+                onChange={(e) => setEditCollectionTitle(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              Display order
+              <input
+                className="admin-input mt-1 w-28"
+                type="number"
+                min={1}
+                value={editCollectionDisplayOrder}
+                onChange={(e) => setEditCollectionDisplayOrder(e.target.value)}
+              />
+            </label>
+            {renderCollectionSlots(true)}
+            {renderProductSearch()}
+            {pendingCollectionProduct ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm">
+                  Selected: <strong>{pendingCollectionProduct.name}</strong>
+                </p>
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-secondary"
+                  onClick={() =>
+                    addProductToCollection(pendingCollectionProduct)
+                  }
+                >
+                  Add product
+                </button>
+              </div>
+            ) : null}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary"
+                disabled={savingCollectionId === editingCollectionId}
+                onClick={() => saveCollectionRow(editingCollectionId)}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeEditCollectionModal}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </AdminModal>
+      ) : null}
+
+      {/* Add story modal */}
+      {mode === 'story_feed' ? (
+        <AdminModal
+          open={showAddStoryModal}
+          title="Add merchant story"
+          onClose={closeAddStoryModal}
+          wide
+        >
+          <form className="space-y-3" onSubmit={addStory}>
+            <label className="block text-sm">
+              Merchant
+              <select
+                className="admin-input mt-1"
+                required
+                value={merchantId}
+                onChange={(e) => setMerchantId(e.target.value)}
+              >
+                <option value="">Select merchant…</option>
+                {merchants.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              Status
+              <select
+                className="admin-input mt-1"
+                value={storyIsActive ? 'active' : 'inactive'}
+                onChange={(e) => setStoryIsActive(e.target.value === 'active')}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label className="block text-sm">
+              Upload image (S3)
+              <input
+                className="mt-1 block w-full text-sm"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setStoryFile(e.target.files?.[0] || null)}
+              />
+            </label>
+            <label className="block text-sm">
+              Or paste image URL
+              <input
+                className="admin-input mt-1"
+                value={storyImage}
+                onChange={(e) => setStoryImage(e.target.value)}
+                placeholder="https://… (optional if uploading)"
+              />
+            </label>
+            <label className="block text-sm">
+              CTA
+              <input
+                className="admin-input mt-1"
+                value={storyCta}
+                onChange={(e) => setStoryCta(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              Story URL
+              <input
+                className="admin-input mt-1"
+                value={storyUrl}
+                onChange={(e) => setStoryUrl(e.target.value)}
+              />
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="admin-btn admin-btn-primary"
+                disabled={!storyFile && !storyImage}
+              >
+                Add story
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeAddStoryModal}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </AdminModal>
+      ) : null}
+
+      {/* Edit story modal */}
+      {mode === 'story_feed' && editingStoryId ? (
+        <AdminModal
+          open={Boolean(editingStoryId)}
+          title="Edit story"
+          onClose={closeEditStoryModal}
+          wide
+        >
+          <div className="space-y-3">
+            <label className="block text-sm">
+              Merchant
+              <select
+                className="admin-input mt-1"
+                value={editStoryMerchantId}
+                onChange={(e) => setEditStoryMerchantId(e.target.value)}
+              >
+                <option value="">Select merchant…</option>
+                {merchants.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              CTA
+              <input
+                className="admin-input mt-1"
+                value={editStoryCta}
+                onChange={(e) => setEditStoryCta(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              Story URL
               <input
                 className="admin-input mt-1"
                 type="url"
                 placeholder="https://…"
-                value={productDetailSponsoredUrl}
-                onChange={(e) => setProductDetailSponsoredUrl(e.target.value)}
+                value={editStoryUrl}
+                onChange={(e) => setEditStoryUrl(e.target.value)}
               />
             </label>
-          ) : null}
-          <label className="block text-sm">
-            Merchant
-            <select
-              className="admin-input mt-1"
-              value={productDetailMerchantId}
-              onChange={(e) => setProductDetailMerchantId(e.target.value)}
-            >
-              <option value="">No merchant</option>
-              {merchants.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            className="admin-btn admin-btn-primary"
-            disabled={!selectedProduct}
-          >
-            Add product to section
-          </button>
-        </form>
+            <label className="block text-sm">
+              Status
+              <select
+                className="admin-input mt-1"
+                value={editStoryIsActive ? 'active' : 'inactive'}
+                onChange={(e) =>
+                  setEditStoryIsActive(e.target.value === 'active')
+                }
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary"
+                disabled={savingStoryId === editingStoryId}
+                onClick={() => saveStoryRow(editingStoryId)}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeEditStoryModal}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </AdminModal>
       ) : null}
 
-      {mode === 'product_feature_collections' && !editingCollectionId ? (
-        <form className="mt-4 space-y-3" onSubmit={addCollection}>
-          <label className="block text-sm">
-            Collection title
-            <input
-              className="admin-input mt-1"
-              required
-              value={collectionTitle}
-              onChange={(e) => setCollectionTitle(e.target.value)}
-            />
-          </label>
-          <label className="block text-sm">
-            Display order
-            <input
-              className="admin-input mt-1 w-28"
-              type="number"
-              min={1}
-              placeholder={String(items.length + 1)}
-              value={collectionDisplayOrder}
-              onChange={(e) => setCollectionDisplayOrder(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="admin-btn admin-btn-primary">
-            Add collection
-          </button>
-        </form>
+      {/* Add ad modal */}
+      {adsEnabled || ads.length > 0 ? (
+        <AdminModal
+          open={showAddAdModal}
+          title="Add section ad"
+          onClose={closeAddAdModal}
+          wide
+        >
+          <form className="space-y-3" onSubmit={addAd}>
+            <label className="block text-sm">
+              Merchant
+              <select
+                className="admin-input mt-1"
+                required
+                value={adMerchantId}
+                onChange={(e) => setAdMerchantId(e.target.value)}
+              >
+                <option value="">Select merchant…</option>
+                {merchants.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              Title
+              <input
+                className="admin-input mt-1"
+                value={adTitle}
+                onChange={(e) => setAdTitle(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              Click URL
+              <input
+                className="admin-input mt-1"
+                value={adClickUrl}
+                onChange={(e) => setAdClickUrl(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              Upload image (S3)
+              <input
+                className="mt-1 block w-full text-sm"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setAdFile(e.target.files?.[0] || null)}
+              />
+            </label>
+            <div className="flex gap-2">
+              <button type="submit" className="admin-btn admin-btn-primary">
+                Add ad
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeAddAdModal}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </AdminModal>
       ) : null}
 
+      {/* Add sponsored product modal */}
       {mode === 'sponsored_products' ? (
-        <form className="mt-4 space-y-3" onSubmit={addSponsored}>
-          <label className="block text-sm">
-            Merchant
-            <select
-              className="admin-input mt-1"
-              required
-              value={merchantId}
-              onChange={(e) => setMerchantId(e.target.value)}
-            >
-              <option value="">Select merchant…</option>
-              {merchants.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            Category
-            <select
-              className="admin-input mt-1"
-              required
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-            >
-              <option value="">Select category…</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            className="admin-btn admin-btn-primary"
-            disabled={!selectedProduct}
-          >
-            Add sponsored product
-          </button>
-        </form>
+        <AdminModal
+          open={showAddSponsoredModal}
+          title="Add sponsored product"
+          onClose={closeAddSponsoredModal}
+          wide
+        >
+          <form className="space-y-3" onSubmit={addSponsored}>
+            {renderProductSearch()}
+            {selectedProduct ? (
+              <p className="text-sm">
+                Selected: <strong>{selectedProduct.name}</strong>
+              </p>
+            ) : null}
+            <label className="block text-sm">
+              Merchant
+              <select
+                className="admin-input mt-1"
+                required
+                value={merchantId}
+                onChange={(e) => setMerchantId(e.target.value)}
+              >
+                <option value="">Select merchant…</option>
+                {merchants.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              Category
+              <select
+                className="admin-input mt-1"
+                required
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+              >
+                <option value="">Select category…</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="admin-btn admin-btn-primary"
+                disabled={!selectedProduct}
+              >
+                Add sponsored product
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeAddSponsoredModal}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </AdminModal>
       ) : null}
     </div>
   );
