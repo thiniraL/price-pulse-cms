@@ -155,6 +155,8 @@ export default function SectionItemsPanel({
   const [savingCollectionId, setSavingCollectionId] = useState<string | null>(
     null
   );
+  const [pendingCollectionProduct, setPendingCollectionProduct] =
+    useState<ProductHit | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -525,31 +527,96 @@ export default function SectionItemsPanel({
     };
   }
 
+  function compactCollectionSlots(products: (ProductHit | null)[]) {
+    const filled = products.filter((product): product is ProductHit => Boolean(product));
+    return [
+      filled[0] ?? null,
+      filled[1] ?? null,
+      filled[2] ?? null,
+      filled[3] ?? null,
+    ];
+  }
+
+  function firstEmptyCollectionSlot(products: (ProductHit | null)[]) {
+    return products.findIndex((product) => !product);
+  }
+
   function clearCollectionSlot(slot: number, isEdit: boolean) {
     if (isEdit) {
-      const next = [...editCollectionProducts];
-      next[slot] = null;
+      const next = compactCollectionSlots(
+        editCollectionProducts.map((product, index) =>
+          index === slot ? null : product
+        )
+      );
       setEditCollectionProducts(next);
+      setEditCollectionSlot(firstEmptyCollectionSlot(next));
       return;
     }
-    const next = [...collectionProducts];
-    next[slot] = null;
+    const next = compactCollectionSlots(
+      collectionProducts.map((product, index) =>
+        index === slot ? null : product
+      )
+    );
     setCollectionProducts(next);
+    setCollectionSlot(Math.max(0, firstEmptyCollectionSlot(next)));
+  }
+
+  function addProductToCollection(product: ProductHit, replaceSelected = false) {
+    const isEdit = Boolean(editingCollectionId);
+    const current = isEdit ? editCollectionProducts : collectionProducts;
+    const emptySlot = firstEmptyCollectionSlot(current);
+    const selectedSlot = isEdit ? editCollectionSlot : collectionSlot;
+    const targetSlot =
+      emptySlot >= 0 ? emptySlot : replaceSelected ? selectedSlot : -1;
+
+    if (targetSlot < 0) {
+      setError(
+        'This collection already has 4 products. Remove one first, then add a new product.'
+      );
+      return false;
+    }
+
+    const next = [...current];
+    next[targetSlot] = product;
+    if (isEdit) {
+      setEditCollectionProducts(next);
+      setEditCollectionSlot(
+        firstEmptyCollectionSlot(next) >= 0
+          ? firstEmptyCollectionSlot(next)
+          : targetSlot
+      );
+    } else {
+      setCollectionProducts(next);
+      setCollectionSlot(
+        firstEmptyCollectionSlot(next) >= 0
+          ? firstEmptyCollectionSlot(next)
+          : targetSlot
+      );
+    }
+    setPendingCollectionProduct(null);
+    setProductHits([]);
+    setProductQuery('');
+    setError(null);
+    return true;
   }
 
   function startEditCollection(item: Record<string, unknown>) {
-    setEditingCollectionId(String(item.id));
-    setEditCollectionTitle(String(item.title || ''));
-    setEditCollectionDisplayOrder(String(item.displayOrder ?? 1));
-    setEditCollectionProducts([
+    const products = compactCollectionSlots([
       productHitFromCollectionField(item, 1),
       productHitFromCollectionField(item, 2),
       productHitFromCollectionField(item, 3),
       productHitFromCollectionField(item, 4),
     ]);
-    setEditCollectionSlot(0);
+    setEditingCollectionId(String(item.id));
+    setEditCollectionTitle(String(item.title || ''));
+    setEditCollectionDisplayOrder(String(item.displayOrder ?? 1));
+    setEditCollectionProducts(products);
+    const emptySlot = firstEmptyCollectionSlot(products);
+    setEditCollectionSlot(emptySlot >= 0 ? emptySlot : 0);
+    setPendingCollectionProduct(null);
     setProductHits([]);
     setProductQuery('');
+    setError(null);
   }
 
   async function saveCollectionRow(itemId: string) {
@@ -567,10 +634,10 @@ export default function SectionItemsPanel({
           title: editCollectionTitle.trim(),
           displayOrder:
             Number.isFinite(orderNum) && orderNum > 0 ? orderNum : 1,
-          productId1: editCollectionProducts[0]?.id || null,
-          productId2: editCollectionProducts[1]?.id || null,
-          productId3: editCollectionProducts[2]?.id || null,
-          productId4: editCollectionProducts[3]?.id || null,
+          productId1: compactCollectionSlots(editCollectionProducts)[0]?.id || null,
+          productId2: compactCollectionSlots(editCollectionProducts)[1]?.id || null,
+          productId3: compactCollectionSlots(editCollectionProducts)[2]?.id || null,
+          productId4: compactCollectionSlots(editCollectionProducts)[3]?.id || null,
         }),
       });
       setEditingCollectionId(null);
@@ -654,15 +721,10 @@ export default function SectionItemsPanel({
 
   function pickProduct(p: ProductHit) {
     if (mode === 'product_feature_collections') {
-      if (editingCollectionId) {
-        const next = [...editCollectionProducts];
-        next[editCollectionSlot] = p;
-        setEditCollectionProducts(next);
-      } else {
-        const next = [...collectionProducts];
-        next[collectionSlot] = p;
-        setCollectionProducts(next);
-      }
+      setPendingCollectionProduct(p);
+      setProductHits([]);
+      setProductQuery(p.name);
+      return;
     } else {
       setSelectedProduct(p);
       if (mode === 'product_detail_blocks') {
@@ -1379,17 +1441,9 @@ export default function SectionItemsPanel({
                                 key={index}
                                 className="flex items-center gap-2 text-xs"
                               >
-                                <button
-                                  type="button"
-                                  className={`rounded px-2 py-0.5 ${
-                                    editCollectionSlot === index
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-slate-100 text-slate-600'
-                                  }`}
-                                  onClick={() => setEditCollectionSlot(index)}
-                                >
+                                <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">
                                   {index + 1}
-                                </button>
+                                </span>
                                 <span className="min-w-0 flex-1 truncate">
                                   {product?.name || '— empty —'}
                                 </span>
@@ -1403,11 +1457,15 @@ export default function SectionItemsPanel({
                                   >
                                     Remove
                                   </button>
-                                ) : null}
+                                ) : (
+                                  <span className="text-[var(--muted)]">
+                                    Add below
+                                  </span>
+                                )}
                               </div>
                             ))}
                             <p className="text-[var(--muted)]">
-                              Pick a slot, then search below to add a product.
+                              Search below and click Add product. Max 4 products.
                             </p>
                           </div>
                         ) : (
@@ -1437,7 +1495,12 @@ export default function SectionItemsPanel({
                             <button
                               type="button"
                               className="admin-btn admin-btn-secondary"
-                              onClick={() => setEditingCollectionId(null)}
+                              onClick={() => {
+                                setEditingCollectionId(null);
+                                setPendingCollectionProduct(null);
+                                setProductQuery('');
+                                setProductHits([]);
+                              }}
                             >
                               Cancel
                             </button>
@@ -1503,31 +1566,13 @@ export default function SectionItemsPanel({
             <>
               <p className="text-sm font-medium">
                 {editingCollectionId
-                  ? 'Edit collection products'
-                  : 'Add collection products'}
+                  ? 'Add product to this collection'
+                  : 'Add products to new collection'}
               </p>
-              <label className="block text-sm">
-                Assign search result to slot
-                <select
-                  className="admin-input mt-1 max-w-xs"
-                  value={
-                    editingCollectionId ? editCollectionSlot : collectionSlot
-                  }
-                  onChange={(e) => {
-                    const slot = Number(e.target.value);
-                    if (editingCollectionId) {
-                      setEditCollectionSlot(slot);
-                    } else {
-                      setCollectionSlot(slot);
-                    }
-                  }}
-                >
-                  <option value={0}>Product 1</option>
-                  <option value={1}>Product 2</option>
-                  <option value={2}>Product 3</option>
-                  <option value={3}>Product 4</option>
-                </select>
-              </label>
+              <p className="text-xs text-[var(--muted)]">
+                Search a product, then click Add product. It fills the next empty
+                slot (max 4).
+              </p>
             </>
           ) : null}
           <label className="block text-sm">
@@ -1559,6 +1604,20 @@ export default function SectionItemsPanel({
                 </li>
               ))}
             </ul>
+          ) : null}
+          {mode === 'product_feature_collections' && pendingCollectionProduct ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm">
+                Selected: <strong>{pendingCollectionProduct.name}</strong>
+              </p>
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary"
+                onClick={() => addProductToCollection(pendingCollectionProduct)}
+              >
+                Add product
+              </button>
+            </div>
           ) : null}
           {mode !== 'product_feature_collections' && selectedProduct ? (
             <p className="text-sm">
@@ -1599,7 +1658,7 @@ export default function SectionItemsPanel({
               ).map((product, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <span>
-                    {index + 1}: {product?.name || '—'}
+                    {index + 1}: {product?.name || '— empty —'}
                   </span>
                   {product ? (
                     <button

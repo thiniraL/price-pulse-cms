@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import AdminModal from '@/components/AdminModal';
 import Pagination from '@/components/Pagination';
 
 type Merchant = {
@@ -81,6 +82,12 @@ export default function MerchantsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  function closeForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  }
 
   function startCreate() {
     setEditingId(null);
@@ -282,10 +289,13 @@ export default function MerchantsPage() {
       ) : null}
 
       {showForm ? (
-        <form className="admin-card grid gap-3 md:grid-cols-2" onSubmit={onSave}>
-          <h3 className="md:col-span-2 text-lg font-semibold">
-            {editingId ? 'Edit merchant' : 'Create merchant'}
-          </h3>
+        <AdminModal
+          open={showForm}
+          title={editingId ? 'Edit merchant' : 'Create merchant'}
+          onClose={closeForm}
+          wide
+        >
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={onSave}>
           <label className="block text-sm">
             Name
             <input
@@ -441,12 +451,13 @@ export default function MerchantsPage() {
             <button
               type="button"
               className="admin-btn admin-btn-secondary"
-              onClick={() => setShowForm(false)}
+              onClick={closeForm}
             >
               Cancel
             </button>
           </div>
-        </form>
+          </form>
+        </AdminModal>
       ) : null}
 
       {loading ? (

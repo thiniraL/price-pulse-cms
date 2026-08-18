@@ -160,13 +160,17 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
 
     if (mode === 'product_feature_collections') {
+      const hasProduct1 = body.productId1 !== undefined;
+      const hasProduct2 = body.productId2 !== undefined;
+      const hasProduct3 = body.productId3 !== undefined;
+      const hasProduct4 = body.productId4 !== undefined;
       await query(
         `UPDATE content.product_feature_collections
          SET "Title" = COALESCE($2, "Title"),
-             "ProductId1" = COALESCE($3, "ProductId1"),
-             "ProductId2" = COALESCE($4, "ProductId2"),
-             "ProductId3" = COALESCE($5, "ProductId3"),
-             "ProductId4" = COALESCE($6, "ProductId4"),
+             "ProductId1" = CASE WHEN $11::boolean THEN $3::uuid ELSE "ProductId1" END,
+             "ProductId2" = CASE WHEN $12::boolean THEN $4::uuid ELSE "ProductId2" END,
+             "ProductId3" = CASE WHEN $13::boolean THEN $5::uuid ELSE "ProductId3" END,
+             "ProductId4" = CASE WHEN $14::boolean THEN $6::uuid ELSE "ProductId4" END,
              "DisplayOrder" = COALESCE($7, "DisplayOrder"),
              "ExploreText" = COALESCE($8, "ExploreText"),
              "ExploreUrl" = COALESCE($9, "ExploreUrl"),
@@ -176,14 +180,26 @@ export async function PUT(request: NextRequest, { params }: Params) {
         [
           itemId,
           body.title ?? null,
-          body.productId1 === undefined ? null : body.productId1,
-          body.productId2 === undefined ? null : body.productId2,
-          body.productId3 === undefined ? null : body.productId3,
-          body.productId4 === undefined ? null : body.productId4,
+          typeof body.productId1 === 'string' && body.productId1.trim()
+            ? body.productId1.trim()
+            : null,
+          typeof body.productId2 === 'string' && body.productId2.trim()
+            ? body.productId2.trim()
+            : null,
+          typeof body.productId3 === 'string' && body.productId3.trim()
+            ? body.productId3.trim()
+            : null,
+          typeof body.productId4 === 'string' && body.productId4.trim()
+            ? body.productId4.trim()
+            : null,
           body.displayOrder ?? null,
           body.exploreText === undefined ? null : body.exploreText,
           body.exploreUrl === undefined ? null : body.exploreUrl,
           body.isActive ?? null,
+          hasProduct1,
+          hasProduct2,
+          hasProduct3,
+          hasProduct4,
         ]
       );
       return NextResponse.json({ success: true });

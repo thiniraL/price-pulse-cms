@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import AdminModal from '@/components/AdminModal';
 import Pagination from '@/components/Pagination';
 
 type SubNav = {
@@ -83,6 +84,18 @@ export default function HeaderPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  function closeNavForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyNav);
+  }
+
+  function closeSubForm() {
+    setSubParentId(null);
+    setEditingSubId(null);
+    setSubForm(emptySub);
+  }
 
   function startCreate() {
     setEditingId(null);
@@ -255,146 +268,149 @@ export default function HeaderPage() {
       ) : null}
 
       {showForm ? (
-        <form className="admin-card grid gap-3 md:grid-cols-2" onSubmit={saveNav}>
-          <h3 className="md:col-span-2 text-lg font-semibold">
-            {editingId ? 'Edit header item' : 'Create header item'}
-          </h3>
-          <label className="block text-sm">
-            Title
-            <input
-              className="admin-input mt-1"
-              required
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            Slug
-            <input
-              className="admin-input mt-1"
-              placeholder="phones"
-              value={form.slug}
-              onChange={(e) => setForm({ ...form, slug: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            Icon
-            <input
-              className="admin-input mt-1"
-              value={form.icon}
-              onChange={(e) => setForm({ ...form, icon: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            Display order
-            <input
-              className="admin-input mt-1"
-              type="number"
-              value={form.displayOrder}
-              onChange={(e) =>
-                setForm({ ...form, displayOrder: Number(e.target.value) })
-              }
-            />
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) =>
-                setForm({ ...form, isActive: e.target.checked })
-              }
-            />
-            Active
-          </label>
-          <div className="md:col-span-2 flex gap-2">
-            <button type="submit" className="admin-btn admin-btn-primary">
-              Save
-            </button>
-            <button
-              type="button"
-              className="admin-btn admin-btn-secondary"
-              onClick={() => setShowForm(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+        <AdminModal
+          open={showForm}
+          title={editingId ? 'Edit header item' : 'Create header item'}
+          onClose={closeNavForm}
+        >
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={saveNav}>
+            <label className="block text-sm">
+              Title
+              <input
+                className="admin-input mt-1"
+                required
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Slug
+              <input
+                className="admin-input mt-1"
+                placeholder="phones"
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Icon
+              <input
+                className="admin-input mt-1"
+                value={form.icon}
+                onChange={(e) => setForm({ ...form, icon: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Display order
+              <input
+                className="admin-input mt-1"
+                type="number"
+                value={form.displayOrder}
+                onChange={(e) =>
+                  setForm({ ...form, displayOrder: Number(e.target.value) })
+                }
+              />
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm md:col-span-2">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) =>
+                  setForm({ ...form, isActive: e.target.checked })
+                }
+              />
+              Active
+            </label>
+            <div className="md:col-span-2 flex gap-2">
+              <button type="submit" className="admin-btn admin-btn-primary">
+                Save
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeNavForm}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </AdminModal>
       ) : null}
 
       {subParentId ? (
-        <form className="admin-card grid gap-3 md:grid-cols-2" onSubmit={saveSub}>
-          <h3 className="md:col-span-2 text-lg font-semibold">
-            {editingSubId ? 'Edit sub item' : 'Create sub item'}
-          </h3>
-          <p className="md:col-span-2 text-xs text-[var(--muted)]">
-            Parent: {items.find((i) => i.id === subParentId)?.title}
-          </p>
-          <label className="block text-sm">
-            Name
-            <input
-              className="admin-input mt-1"
-              required
-              value={subForm.name}
-              onChange={(e) => setSubForm({ ...subForm, name: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            Slug
-            <input
-              className="admin-input mt-1"
-              placeholder="apple or /phones?brand=Apple"
-              value={subForm.slug}
-              onChange={(e) => setSubForm({ ...subForm, slug: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            Icon
-            <input
-              className="admin-input mt-1"
-              value={subForm.icon}
-              onChange={(e) => setSubForm({ ...subForm, icon: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            Display order
-            <input
-              className="admin-input mt-1"
-              type="number"
-              value={subForm.displayOrder}
-              onChange={(e) =>
-                setSubForm({
-                  ...subForm,
-                  displayOrder: Number(e.target.value),
-                })
-              }
-            />
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={subForm.isActive}
-              onChange={(e) =>
-                setSubForm({ ...subForm, isActive: e.target.checked })
-              }
-            />
-            Active
-          </label>
-          <div className="md:col-span-2 flex gap-2">
-            <button type="submit" className="admin-btn admin-btn-primary">
-              Save sub item
-            </button>
-            <button
-              type="button"
-              className="admin-btn admin-btn-secondary"
-              onClick={() => {
-                setSubParentId(null);
-                setEditingSubId(null);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+        <AdminModal
+          open={Boolean(subParentId)}
+          title={editingSubId ? 'Edit sub item' : 'Create sub item'}
+          onClose={closeSubForm}
+        >
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={saveSub}>
+            <p className="md:col-span-2 text-xs text-[var(--muted)]">
+              Parent: {items.find((i) => i.id === subParentId)?.title}
+            </p>
+            <label className="block text-sm">
+              Name
+              <input
+                className="admin-input mt-1"
+                required
+                value={subForm.name}
+                onChange={(e) => setSubForm({ ...subForm, name: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Slug
+              <input
+                className="admin-input mt-1"
+                placeholder="apple or /phones?brand=Apple"
+                value={subForm.slug}
+                onChange={(e) => setSubForm({ ...subForm, slug: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Icon
+              <input
+                className="admin-input mt-1"
+                value={subForm.icon}
+                onChange={(e) => setSubForm({ ...subForm, icon: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Display order
+              <input
+                className="admin-input mt-1"
+                type="number"
+                value={subForm.displayOrder}
+                onChange={(e) =>
+                  setSubForm({
+                    ...subForm,
+                    displayOrder: Number(e.target.value),
+                  })
+                }
+              />
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm md:col-span-2">
+              <input
+                type="checkbox"
+                checked={subForm.isActive}
+                onChange={(e) =>
+                  setSubForm({ ...subForm, isActive: e.target.checked })
+                }
+              />
+              Active
+            </label>
+            <div className="md:col-span-2 flex gap-2">
+              <button type="submit" className="admin-btn admin-btn-primary">
+                Save sub item
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={closeSubForm}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </AdminModal>
       ) : null}
 
       {loading ? (
