@@ -3,7 +3,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import Pagination from '@/components/Pagination';
-import { listingPathFromSlug, subNavListingHref } from '@/lib/navUrls';
 
 type SubNav = {
   id: string;
@@ -205,8 +204,6 @@ export default function HeaderPage() {
     }
   }
 
-  const subParent = items.find((i) => i.id === subParentId) ?? null;
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -215,8 +212,7 @@ export default function HeaderPage() {
             Header navigation
           </h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Header slug is the listing path. Sub-item slug becomes a filter URL
-            on that listing (same pattern for every category).
+            Search and manage header items as cards.
           </p>
         </div>
         <button type="button" className="admin-btn admin-btn-primary" onClick={startCreate}>
@@ -276,19 +272,10 @@ export default function HeaderPage() {
             Slug
             <input
               className="admin-input mt-1"
-              placeholder="phones or home-appliances"
+              placeholder="phones"
               value={form.slug}
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
             />
-            {form.slug.trim() ? (
-              <span className="mt-1 block font-mono text-xs text-[var(--accent)]">
-                {listingPathFromSlug(form.slug)}
-              </span>
-            ) : (
-              <span className="mt-1 block text-xs text-[var(--muted)]">
-                Storefront URL: /{'{slug}'}
-              </span>
-            )}
           </label>
           <label className="block text-sm">
             Icon
@@ -340,8 +327,7 @@ export default function HeaderPage() {
             {editingSubId ? 'Edit sub item' : 'Create sub item'}
           </h3>
           <p className="md:col-span-2 text-xs text-[var(--muted)]">
-            Parent: {subParent?.title}
-            {subParent?.slug ? ` (${subParent.slug})` : ''}
+            Parent: {items.find((i) => i.id === subParentId)?.title}
           </p>
           <label className="block text-sm">
             Name
@@ -352,25 +338,14 @@ export default function HeaderPage() {
               onChange={(e) => setSubForm({ ...subForm, name: e.target.value })}
             />
           </label>
-          <label className="block text-sm md:col-span-2">
-            Slug or listing URL
+          <label className="block text-sm">
+            Slug
             <input
               className="admin-input mt-1"
-              placeholder="ASUS  or  brand=ASUS  or  /home-appliances?brand=Air+Conditioners"
+              placeholder="apple or /phones?brand=Apple"
               value={subForm.slug}
               onChange={(e) => setSubForm({ ...subForm, slug: e.target.value })}
             />
-            <span className="mt-1 block font-mono text-xs text-[var(--accent)]">
-              {subNavListingHref(
-                subParent?.slug,
-                subForm.slug,
-                subForm.name
-              )}
-            </span>
-            <span className="mt-1 block text-xs text-[var(--muted)]">
-              Use a value (ASUS), a query (type=Inverter), or a full listing URL.
-              Other categories use the same pattern.
-            </span>
           </label>
           <label className="block text-sm">
             Icon
@@ -436,8 +411,8 @@ export default function HeaderPage() {
                     Order {item.displayOrder}
                   </p>
                   <h3 className="text-lg font-semibold">{item.title}</h3>
-                  <p className="font-mono text-sm text-[var(--accent)]">
-                    {item.slug ? listingPathFromSlug(item.slug) : 'No slug'}
+                  <p className="text-sm text-[var(--muted)]">
+                    {item.slug || 'No slug'}
                   </p>
                 </div>
                 <span
@@ -467,9 +442,11 @@ export default function HeaderPage() {
                         <span>
                           {sub.displayOrder}. {sub.name}
                           {!sub.isActive ? ' (inactive)' : ''}
-                          <span className="mt-0.5 block font-mono text-xs text-[var(--muted)]">
-                            {subNavListingHref(item.slug, sub.slug, sub.name)}
-                          </span>
+                          {sub.slug ? (
+                            <span className="mt-0.5 block text-xs text-[var(--muted)]">
+                              {sub.slug}
+                            </span>
+                          ) : null}
                         </span>
                         <span className="flex gap-2">
                           <button
