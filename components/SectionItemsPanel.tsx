@@ -137,10 +137,24 @@ export default function SectionItemsPanel({
   const [adFile, setAdFile] = useState<File | null>(null);
 
   const [collectionTitle, setCollectionTitle] = useState('');
+  const [collectionDisplayOrder, setCollectionDisplayOrder] = useState('');
   const [collectionProducts, setCollectionProducts] = useState<
     (ProductHit | null)[]
   >([null, null, null, null]);
   const [collectionSlot, setCollectionSlot] = useState(0);
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(
+    null
+  );
+  const [editCollectionTitle, setEditCollectionTitle] = useState('');
+  const [editCollectionDisplayOrder, setEditCollectionDisplayOrder] =
+    useState('1');
+  const [editCollectionProducts, setEditCollectionProducts] = useState<
+    (ProductHit | null)[]
+  >([null, null, null, null]);
+  const [editCollectionSlot, setEditCollectionSlot] = useState(0);
+  const [savingCollectionId, setSavingCollectionId] = useState<string | null>(
+    null
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -495,10 +509,84 @@ export default function SectionItemsPanel({
     }
   }
 
+  function productHitFromCollectionField(
+    item: Record<string, unknown>,
+    index: 1 | 2 | 3 | 4
+  ): ProductHit | null {
+    const productId = item[`productId${index}`];
+    if (!productId) return null;
+    const productName = item[`productName${index}`];
+    return {
+      id: String(productId),
+      name: String(productName || productId),
+      slug: null,
+      categoryId: null,
+      categoryName: null,
+    };
+  }
+
+  function clearCollectionSlot(slot: number, isEdit: boolean) {
+    if (isEdit) {
+      const next = [...editCollectionProducts];
+      next[slot] = null;
+      setEditCollectionProducts(next);
+      return;
+    }
+    const next = [...collectionProducts];
+    next[slot] = null;
+    setCollectionProducts(next);
+  }
+
+  function startEditCollection(item: Record<string, unknown>) {
+    setEditingCollectionId(String(item.id));
+    setEditCollectionTitle(String(item.title || ''));
+    setEditCollectionDisplayOrder(String(item.displayOrder ?? 1));
+    setEditCollectionProducts([
+      productHitFromCollectionField(item, 1),
+      productHitFromCollectionField(item, 2),
+      productHitFromCollectionField(item, 3),
+      productHitFromCollectionField(item, 4),
+    ]);
+    setEditCollectionSlot(0);
+    setProductHits([]);
+    setProductQuery('');
+  }
+
+  async function saveCollectionRow(itemId: string) {
+    if (!editCollectionTitle.trim()) {
+      setError('Collection title is required');
+      return;
+    }
+    setSavingCollectionId(itemId);
+    setError(null);
+    try {
+      const orderNum = Number(editCollectionDisplayOrder);
+      await apiFetch(`/api/page-sections/${sectionId}/items/${itemId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: editCollectionTitle.trim(),
+          displayOrder:
+            Number.isFinite(orderNum) && orderNum > 0 ? orderNum : 1,
+          productId1: editCollectionProducts[0]?.id || null,
+          productId2: editCollectionProducts[1]?.id || null,
+          productId3: editCollectionProducts[2]?.id || null,
+          productId4: editCollectionProducts[3]?.id || null,
+        }),
+      });
+      setEditingCollectionId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingCollectionId(null);
+    }
+  }
+
   async function addCollection(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
+      const orderNum = Number(collectionDisplayOrder);
       await apiFetch(`/api/page-sections/${sectionId}/items`, {
         method: 'POST',
         body: JSON.stringify({
@@ -507,11 +595,17 @@ export default function SectionItemsPanel({
           productId2: collectionProducts[1]?.id || null,
           productId3: collectionProducts[2]?.id || null,
           productId4: collectionProducts[3]?.id || null,
-          displayOrder: items.length + 1,
+          displayOrder:
+            Number.isFinite(orderNum) && orderNum > 0
+              ? orderNum
+              : items.length + 1,
         }),
       });
       setCollectionTitle('');
+      setCollectionDisplayOrder('');
       setCollectionProducts([null, null, null, null]);
+      setProductQuery('');
+      setProductHits([]);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Add failed');
@@ -560,9 +654,15 @@ export default function SectionItemsPanel({
 
   function pickProduct(p: ProductHit) {
     if (mode === 'product_feature_collections') {
-      const next = [...collectionProducts];
-      next[collectionSlot] = p;
-      setCollectionProducts(next);
+      if (editingCollectionId) {
+        const next = [...editCollectionProducts];
+        next[editCollectionSlot] = p;
+        setEditCollectionProducts(next);
+      } else {
+        const next = [...collectionProducts];
+        next[collectionSlot] = p;
+        setCollectionProducts(next);
+      }
     } else {
       setSelectedProduct(p);
       if (mode === 'product_detail_blocks') {
@@ -1243,17 +1343,121 @@ export default function SectionItemsPanel({
                   ) : null}
                   {mode === 'product_feature_collections' ? (
                     <>
-                      <td>{String(item.displayOrder)}</td>
-                      <td>{String(item.title)}</td>
-                      <td className="text-xs">
-                        {[
-                          item.productName1,
-                          item.productName2,
-                          item.productName3,
-                          item.productName4,
-                        ]
-                          .filter(Boolean)
-                          .join(', ') || '—'}
+                      <td className="min-w-[70px]">
+                        {editingCollectionId === String(item.id) ? (
+                          <input
+                            className="admin-input w-20"
+                            type="number"
+                            min={1}
+                            value={editCollectionDisplayOrder}
+                            onChange={(e) =>
+                              setEditCollectionDisplayOrder(e.target.value)
+                            }
+                          />
+                        ) : (
+                          String(item.displayOrder)
+                        )}
+                      </td>
+                      <td className="min-w-[160px]">
+                        {editingCollectionId === String(item.id) ? (
+                          <input
+                            className="admin-input"
+                            value={editCollectionTitle}
+                            onChange={(e) =>
+                              setEditCollectionTitle(e.target.value)
+                            }
+                          />
+                        ) : (
+                          String(item.title)
+                        )}
+                      </td>
+                      <td className="min-w-[280px]">
+                        {editingCollectionId === String(item.id) ? (
+                          <div className="space-y-1">
+                            {editCollectionProducts.map((product, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2 text-xs"
+                              >
+                                <button
+                                  type="button"
+                                  className={`rounded px-2 py-0.5 ${
+                                    editCollectionSlot === index
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-slate-100 text-slate-600'
+                                  }`}
+                                  onClick={() => setEditCollectionSlot(index)}
+                                >
+                                  {index + 1}
+                                </button>
+                                <span className="min-w-0 flex-1 truncate">
+                                  {product?.name || '— empty —'}
+                                </span>
+                                {product ? (
+                                  <button
+                                    type="button"
+                                    className="text-[var(--danger)]"
+                                    onClick={() =>
+                                      clearCollectionSlot(index, true)
+                                    }
+                                  >
+                                    Remove
+                                  </button>
+                                ) : null}
+                              </div>
+                            ))}
+                            <p className="text-[var(--muted)]">
+                              Pick a slot, then search below to add a product.
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-xs">
+                            {[
+                              item.productName1,
+                              item.productName2,
+                              item.productName3,
+                              item.productName4,
+                            ]
+                              .filter(Boolean)
+                              .join(', ') || '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="space-x-2 whitespace-nowrap">
+                        {editingCollectionId === String(item.id) ? (
+                          <>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-primary"
+                              disabled={savingCollectionId === String(item.id)}
+                              onClick={() => saveCollectionRow(String(item.id))}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-secondary"
+                              onClick={() => setEditingCollectionId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-secondary"
+                            onClick={() => startEditCollection(item)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-danger"
+                          onClick={() => removeItem(String(item.id))}
+                        >
+                          Remove
+                        </button>
                       </td>
                     </>
                   ) : null}
@@ -1265,7 +1469,8 @@ export default function SectionItemsPanel({
                       <td>{String(item.categoryName || item.categoryId)}</td>
                     </>
                   ) : null}
-                  {mode !== 'product_detail_blocks' ? (
+                  {mode !== 'product_detail_blocks' &&
+                  mode !== 'product_feature_collections' ? (
                     <td>
                       <button
                         type="button"
@@ -1295,19 +1500,35 @@ export default function SectionItemsPanel({
         mode === 'product_feature_collections') && (
         <div className="mt-4 space-y-2">
           {mode === 'product_feature_collections' ? (
-            <label className="block text-sm">
-              Assign search result to slot
-              <select
-                className="admin-input mt-1 max-w-xs"
-                value={collectionSlot}
-                onChange={(e) => setCollectionSlot(Number(e.target.value))}
-              >
-                <option value={0}>Product 1</option>
-                <option value={1}>Product 2</option>
-                <option value={2}>Product 3</option>
-                <option value={3}>Product 4</option>
-              </select>
-            </label>
+            <>
+              <p className="text-sm font-medium">
+                {editingCollectionId
+                  ? 'Edit collection products'
+                  : 'Add collection products'}
+              </p>
+              <label className="block text-sm">
+                Assign search result to slot
+                <select
+                  className="admin-input mt-1 max-w-xs"
+                  value={
+                    editingCollectionId ? editCollectionSlot : collectionSlot
+                  }
+                  onChange={(e) => {
+                    const slot = Number(e.target.value);
+                    if (editingCollectionId) {
+                      setEditCollectionSlot(slot);
+                    } else {
+                      setCollectionSlot(slot);
+                    }
+                  }}
+                >
+                  <option value={0}>Product 1</option>
+                  <option value={1}>Product 2</option>
+                  <option value={2}>Product 3</option>
+                  <option value={3}>Product 4</option>
+                </select>
+              </label>
+            </>
           ) : null}
           <label className="block text-sm">
             Search products
@@ -1368,12 +1589,32 @@ export default function SectionItemsPanel({
             </label>
           ) : null}
           {mode === 'product_feature_collections' ? (
-            <p className="text-xs text-[var(--muted)]">
-              Slots:{' '}
-              {collectionProducts
-                .map((p, i) => `${i + 1}:${p?.name || '—'}`)
-                .join(' · ')}
-            </p>
+            <div className="space-y-1 text-xs text-[var(--muted)]">
+              <p className="font-medium text-[var(--foreground)]">
+                {editingCollectionId ? 'Editing slots' : 'New collection slots'}
+              </p>
+              {(editingCollectionId
+                ? editCollectionProducts
+                : collectionProducts
+              ).map((product, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span>
+                    {index + 1}: {product?.name || '—'}
+                  </span>
+                  {product ? (
+                    <button
+                      type="button"
+                      className="text-[var(--danger)]"
+                      onClick={() =>
+                        clearCollectionSlot(index, Boolean(editingCollectionId))
+                      }
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           ) : null}
         </div>
       )}
@@ -1451,7 +1692,7 @@ export default function SectionItemsPanel({
         </form>
       ) : null}
 
-      {mode === 'product_feature_collections' ? (
+      {mode === 'product_feature_collections' && !editingCollectionId ? (
         <form className="mt-4 space-y-3" onSubmit={addCollection}>
           <label className="block text-sm">
             Collection title
@@ -1460,6 +1701,17 @@ export default function SectionItemsPanel({
               required
               value={collectionTitle}
               onChange={(e) => setCollectionTitle(e.target.value)}
+            />
+          </label>
+          <label className="block text-sm">
+            Display order
+            <input
+              className="admin-input mt-1 w-28"
+              type="number"
+              min={1}
+              placeholder={String(items.length + 1)}
+              value={collectionDisplayOrder}
+              onChange={(e) => setCollectionDisplayOrder(e.target.value)}
             />
           </label>
           <button type="submit" className="admin-btn admin-btn-primary">
